@@ -1,23 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import articlesData from "./data/articles.json";
 
 const terms = `Abraham|Acción de gracias|Aceite|Adán|Adoración|Agua|Alabanza|Alianza|Alimento|Alma|Altar|Amén|Amigo|Amor|Ángeles|Animales|Anticristo|Apóstoles|Árbol|Arca|Ascensión|Astros|Autoridad|Ayuno|Babel - Babilonia|Bautismo|Bendición|Bestias|Bien - Mal|Bienaventuranza|Blanco|Brazo|Buscar|Calamidad|Camino|Carisma|Carne|Casa|Castigos|Cautividad|Celo|Cielo|Circuncisión|Comida|Comunión|Confesión|Confianza|Conocer|Consolación|Copa|Corazón|Cordero de Dios|Creación|Crecimiento|Cruz|Cuerpo|Cuerpo de Cristo|Cuidados|Culto|Cumplir|David|Demonios|Deseo|Desierto|Designio de Dios|Día del Señor|Diestra|Diluvio|Dios|Discípulo|Dispersión|Don|Edificar|Educación|Egipto|Ejemplo|Elección|Elías|Embriaguez|Endurecimiento|Enemigo|Enfermedad - Curación|Enseñar|Error|Escándalo|Esclavo|Escritura|Escuchar|Esperanza|Espíritu|Espíritu de Dios|Esposo|Esterilidad|Eucaristía|Evangelio|Exhortar|Exilio|Éxodo|Expiación|Extranjero|Fariseos|Fe|Fecundidad|Fidelidad|Fiestas|Figura|Fruto|Fuego|Fuerza|Generación|Gloria|Gozo|Gracia|Guerra|Gustar|Hambre y sed|Hebreo|Herencia|Hermano|Hijo|Hijo del hombre|Hipócrita|Hombre|Hora|Hospitalidad|Humildad|Ídolos|Iglesia|Imagen|Impío|Imposición de manos|Incredulidad|Infierno|Ira|Israel|Jerusalén|Jesús|Juan Bautista|Judío|Juicio|Justicia|Justificación|Labios|Lámpara|Leche|Lengua|Lepra|Ley|Liberación - Libertad|Libro|Limosna|Locura|Lomos y riñones|Luz|Madre|Maldición|Maná|Mansedumbre|Mar|María|Mártir|Matrimonio|Mediador|Memoria|Mentira|Mesías|Milagro|Ministerio|Misericordia|Misión|Misterio|Moisés|Montaña|Muerte|Mujer|Mundo|Nacimiento (nuevo)|Naciones|Niño|Noche|Nombre|Nube|Nuevo|Números|Obediencia|Obras|Odio|Oración|Orgullo|Paciencia|Padres y Padre|Palabra de Dios|Palabra humana|Pan|Parábola|Paráclito|Paraíso|Pascua|Pastor - Rebaño|Patria|Paz|Pecado|Pedro|Penitencia - Conversión|Pentecostés|Perdón|Perfección|Permanecer|Persecución|Piedad|Piedra|Plenitud|Pobres|Poder|Predicar|Presencia de Dios|Primicias|Proceso|Profeta|Prójimo|Promesas|Prueba - Tentación|Pueblo|Puerta|Puro|Reconciliación|Redención|Reino|Reposo|Resto|Resurrección|Retribución|Revelación|Rey|Riquezas|Risa|Roca|Rodilla|Rostro|Sábado|Sabiduría|Sacerdocio|Sacrificio|Salvación|Sangre|Santo|Satán|Seguir|Sello|Semana|Sembrar|Sencillo|Señor|Servir|Siega|Siervo de Yahveh|Silencio|Soberbia|Soledad|Sombra|Sueño|Sufrimiento|Temor|Templo|Testimonio|Tiempo|Tierra|Tormenta|Trabajo|Tradición|Transfiguración|Tristeza|Unción|Unidad|Velar|Vendimia|Venganza|Ver|Verdad|Vergüenza|Vestido|Victoria|Vida|Vino|Viña|Virginidad|Visita|Vocación|Voluntad de Dios`.split("|");
 
-const references: Record<string, { title: string; text: string }> = {
-  "Jn 14,6": { title: "Juan 14,6", text: "Jesús le respondió: «Yo soy el Camino, la Verdad y la Vida. Nadie va al Padre, sino por mí»." },
-  "Sal 119,105": { title: "Salmo 119,105", text: "Tu palabra es una lámpara para mis pasos, y una luz en mi camino." },
-  "Hch 9,2": { title: "Hechos 9,2", text: "Pidió cartas para las sinagogas de Damasco, a fin de llevar encadenados a Jerusalén a los seguidores del Camino que encontrara." },
+type Article = {
+  title: string;
+  pdfTitle: string;
+  text: string;
+  sourcePages: [number, number];
 };
 
-function Reference({ id, onOpen }: { id: string; onOpen: (id: string) => void }) {
-  return <button className="bib-ref" onClick={() => onOpen(id)} aria-label={`Leer ${references[id].title}`}>{id}</button>;
+type OpenReference = { label: string; context: string };
+
+const articles = articlesData as Record<string, Article>;
+const bibleBooks = String.raw`(?:Gén|Gen|Éx|Ex|Lév|Lev|Núm|Num|Dt|Jos|Jue|Rut|[12I]{1,3}Sa|[12I]{1,3}Re|[12I]{1,3}Par|Esd|Neh|Est|Job|Sal|Prov|Ecl|Cant|Sab|Eclo|Is|Jer|Lam|Bar|Ez|Dan|Os|Jl|Am|Abd|Jon|Miq|Nah|Hab|Sof|Ag|Zac|Mal|Mt|Mc|Lc|Jn|Act|Hch|Rom|[12I]{1,3}Cor|Gál|Gal|Ef|Flp|Col|[12I]{1,3}Tes|[12I]{1,3}Tim|Tit|Flm|Heb|Sant|[12I]{1,3}Pe|[123I]{1,3}Jn|Jud|Ap)`;
+const parentheticalCitation = new RegExp(
+  String.raw`\((?:cf\.\s*)?[^()]{0,28}\b${bibleBooks}\s+\d{1,3}(?:[,.:]\s*\d+)?[^()]{0,95}\)`,
+  "giu",
+);
+const inlineCitation = new RegExp(
+  String.raw`\b${bibleBooks}\s+\d{1,3}(?:[,.:]\s*\d+)(?:[-–]\d+|(?:s|ss))?`,
+  "giu",
+);
+
+function bibleUrl(reference: string) {
+  return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference.replace(/[()]/g, ""))}&version=RVA`;
 }
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const [activeTerm, setActiveTerm] = useState<string | null>(null);
-  const [openRef, setOpenRef] = useState<string | null>(null);
+  const [openRef, setOpenRef] = useState<OpenReference | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const filtered = useMemo(() => terms.filter((term) =>
@@ -34,6 +49,7 @@ export default function Home() {
   }, [openRef]);
 
   if (activeTerm) {
+    const article = articles[activeTerm];
     return (
       <main>
         <Header />
@@ -42,25 +58,11 @@ export default function Home() {
           <button className="back" onClick={() => setActiveTerm(null)}>← Volver al vocabulario</button>
           <p className="eyebrow">Vocabulario de teología bíblica</p>
           <h2>{activeTerm}</h2>
-          {activeTerm === "Camino" ? (
-            <>
-              <p className="lead">La experiencia humana del camino sirve a la revelación bíblica para expresar la orientación de una vida y el encuentro del hombre con Dios.</p>
-              <h3>I. Los caminos de Dios</h3>
-              <p>La Escritura presenta la existencia como una marcha. La palabra recibida ilumina los pasos del creyente <Reference id="Sal 119,105" onOpen={setOpenRef} />, mientras Dios guía a su pueblo y le enseña a reconocer su voluntad.</p>
-              <h3>II. Cristo, camino vivo</h3>
-              <p>En el Nuevo Testamento, la imagen alcanza su plenitud en Jesús: él no se limita a mostrar una ruta, sino que se presenta como el camino hacia el Padre <Reference id="Jn 14,6" onOpen={setOpenRef} />. Por eso, la primera comunidad cristiana llegó a ser identificada como «el Camino» <Reference id="Hch 9,2" onOpen={setOpenRef} />.</p>
-              <h3>III. Caminar en la fe</h3>
-              <p>Seguir este camino implica escuchar, discernir y perseverar. La fe deja de ser una idea abstracta para convertirse en conducta, comunión y esperanza.</p>
-            </>
-          ) : (
-            <>
-              <p className="lead">Entrada del vocabulario dedicada a «{activeTerm}».</p>
-              <p>Esta maqueta conserva la navegación, la jerarquía editorial y el sistema de consulta del índice. Abre la entrada <button className="inline-link" onClick={() => setActiveTerm("Camino")}>Camino</button> para ver el artículo demostrativo con referencias bíblicas accesibles.</p>
-            </>
-          )}
+          <p className="article-meta">Texto extraído del PDF proporcionado · páginas {article.sourcePages[0]}–{article.sourcePages[1]}</p>
+          <ArticleBody article={article} onOpenReference={setOpenRef} />
         </article>
         <Footer />
-        {openRef && <Modal id={openRef} onClose={() => setOpenRef(null)} closeRef={closeRef} />}
+        {openRef && <Modal reference={openRef} onClose={() => setOpenRef(null)} closeRef={closeRef} />}
       </main>
     );
   }
@@ -98,6 +100,75 @@ export default function Home() {
   );
 }
 
+function ArticleBody({
+  article,
+  onOpenReference,
+}: {
+  article: Article;
+  onOpenReference: (reference: OpenReference) => void;
+}) {
+  const paragraphs = article.text.split(/\n{2,}/).filter(Boolean);
+  return <div className="article-body">
+    {paragraphs.map((paragraph, index) => {
+      const heading =
+        paragraph.length < 180 &&
+        (/^(?:[IVXLCDM]+\.|\d+\.)\s/u.test(paragraph) ||
+          (paragraph === paragraph.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/u.test(paragraph)));
+      if (heading) {
+        return <h3 key={index}>{paragraph}</h3>;
+      }
+      return <p className={index === 0 ? "lead" : undefined} key={index}>
+        {renderReferences(paragraph, onOpenReference)}
+      </p>;
+    })}
+  </div>;
+}
+
+function renderReferences(
+  text: string,
+  onOpenReference: (reference: OpenReference) => void,
+) {
+  const matches = [
+    ...text.matchAll(parentheticalCitation),
+    ...text.matchAll(inlineCitation),
+  ]
+    .map((match) => ({ start: match.index ?? 0, value: match[0] }))
+    .sort((a, b) => a.start - b.start || b.value.length - a.value.length)
+    .filter((match, index, all) =>
+      !all.slice(0, index).some(
+        (previous) =>
+          match.start >= previous.start &&
+          match.start + match.value.length <= previous.start + previous.value.length,
+      ),
+    );
+
+  if (!matches.length) return text;
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  matches.forEach((match, index) => {
+    nodes.push(text.slice(cursor, match.start));
+    nodes.push(
+      <a
+        className="bib-ref"
+        href={bibleUrl(match.value)}
+        key={`${match.start}-${index}`}
+        target="_blank"
+        rel="noreferrer"
+        onClick={(event) => {
+          event.preventDefault();
+          onOpenReference({ label: match.value, context: text });
+        }}
+        aria-label={`Consultar la referencia bíblica ${match.value}`}
+      >
+        {match.value}
+      </a>,
+    );
+    cursor = match.start + match.value.length;
+  });
+  nodes.push(text.slice(cursor));
+  return nodes;
+}
+
 function Header() {
   return <header className="site-header"><div className="monogram" aria-hidden="true">LD</div><div><h1>León Dufour</h1><p>Vocabulario de teología bíblica</p></div></header>;
 }
@@ -114,15 +185,17 @@ function Footer() {
   </footer>;
 }
 
-function Modal({ id, onClose, closeRef }: { id: string; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
-  const ref = references[id];
+function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
   return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <button ref={closeRef} className="modal-close" onClick={onClose} aria-label="Cerrar referencia">×</button>
       <p className="eyebrow">Referencia bíblica</p>
-      <h2 id="modal-title">{ref.title}</h2>
-      <blockquote>«{ref.text}»</blockquote>
-      <p className="modal-note">Texto presentado para consulta contextual.</p>
+      <h2 id="modal-title">{reference.label}</h2>
+      <p className="reference-context">{reference.context}</p>
+      <a className="reference-link" href={bibleUrl(reference.label)} target="_blank" rel="noreferrer">
+        Consultar el pasaje bíblico completo ↗
+      </a>
+      <p className="modal-note">Referencia detectada en el PDF proporcionado.</p>
     </div>
   </div>;
 }

@@ -42,7 +42,11 @@ nav span { margin-left:auto; font-size:20px; }
 .reading-page h3 { margin:55px 0 16px; font:400 30px Georgia,serif; }
 .reading-page p { font:20px/1.82 Georgia,serif; }
 .reading-page .lead { font-size:25px; line-height:1.6; }
-.bib-ref, .inline-link { display:inline; border:0; border-bottom:1px solid currentColor; padding:1px 3px; background:rgba(6,78,59,.08); cursor:pointer; font:700 12px Arial,sans-serif; vertical-align:super; }
+.article-meta { margin:-35px 0 58px!important; padding-bottom:18px; border-bottom:1px solid var(--line); font:700 10px/1.4 Arial,sans-serif!important; letter-spacing:.11em; text-transform:uppercase; }
+.article-body { counter-reset:section; }
+.article-body p { text-wrap:pretty; }
+.bib-ref, .inline-link { display:inline; border:0; border-bottom:1px solid currentColor; padding:1px 3px; background:rgba(6,78,59,.08); cursor:pointer; font:700 .68em Arial,sans-serif; vertical-align:.08em; text-decoration:none; border-radius:2px; }
+.bib-ref:hover { background:var(--emerald); color:var(--champagne); }
 .inline-link { vertical-align:baseline; font-size:inherit; font-family:inherit; }
 footer { padding:78px max(32px,calc((100% - 1116px)/2)); border-top:1px solid var(--emerald); display:grid; grid-template-columns:140px minmax(250px,690px) 1fr; gap:42px; align-items:start; }
 .footer-mark { font:400 64px Georgia,serif; }
@@ -53,7 +57,9 @@ footer p { font:14px/1.7 Arial,sans-serif; }
 .modal { position:relative; width:min(600px,100%); padding:54px; border:1px solid var(--emerald); background:var(--paper); box-shadow:0 24px 80px rgba(0,0,0,.25); }
 .modal-close { position:absolute; top:15px; right:19px; width:38px; height:38px; border:1px solid var(--emerald); border-radius:50%; background:transparent; cursor:pointer; font-size:25px; }
 .modal h2 { margin:0 0 22px; font:44px Georgia,serif; }
-.modal blockquote { margin:0; font:24px/1.55 Georgia,serif; }
+.reference-context { margin:0 0 28px; padding-left:20px; border-left:2px solid var(--emerald); font:18px/1.65 Georgia,serif; }
+.reference-link { display:inline-block; padding:12px 16px; border:1px solid var(--emerald); color:var(--emerald); font-size:13px; font-weight:700; text-decoration:none; transition:background .2s,color .2s; }
+.reference-link:hover { background:var(--emerald); color:var(--paper); }
 .modal-note { margin:28px 0 0; padding-top:18px; border-top:1px solid var(--line); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
 @media (max-width:760px) {
   .site-header { padding:30px 20px 24px; }
