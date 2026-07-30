@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "build": {
+    "command": "npm run vercel-build"
+  },
+  "outputDirectory": ".next"
+}
