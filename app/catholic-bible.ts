@@ -135,6 +135,119 @@ function normalizeBook(book: string) {
   return /^[il]2/u.test(normalized) ? normalized.slice(1) : normalized;
 }
 
+const bookSlugToSpanishReferenceBook: Record<string, string> = {
+  genesis: "Génesis",
+  exodo: "Éxodo",
+  levitico: "Levítico",
+  numeros: "Números",
+  deuteronomio: "Deuteronomio",
+  josue: "Josué",
+  jueces: "Jueces",
+  rut: "Rut",
+  "i-samuel": "1 Samuel",
+  "ii-samuel": "2 Samuel",
+  "i-reyes": "1 Reyes",
+  "ii-reyes": "2 Reyes",
+  "i-cronicas": "1 Crónicas",
+  "ii-cronicas": "2 Crónicas",
+  esdras: "Esdras",
+  nehemias: "Nehemías",
+  tobias: "Tobías",
+  judit: "Judit",
+  ester: "Ester",
+  job: "Job",
+  salmos: "Salmos",
+  proverbios: "Proverbios",
+  eclesiastes: "Eclesiastés",
+  cantar: "Cantares",
+  sabiduria: "Sabiduría",
+  eclesiastico: "Eclesiástico",
+  isaias: "Isaías",
+  jeremias: "Jeremías",
+  lamentaciones: "Lamentaciones",
+  baruc: "Baruc",
+  ezequiel: "Ezequiel",
+  daniel: "Daniel",
+  oseas: "Oseas",
+  joel: "Joel",
+  amos: "Amós",
+  abdias: "Abdías",
+  jonas: "Jonás",
+  miqueas: "Miqueas",
+  nahum: "Nahúm",
+  habacuc: "Habacuc",
+  sofonias: "Sofonías",
+  ageo: "Ageo",
+  zacarias: "Zacarías",
+  malaquias: "Malaquías",
+  mateo: "Mateo",
+  marcos: "Marcos",
+  lucas: "Lucas",
+  juan: "Juan",
+  hechos: "Hechos",
+  romanos: "Romanos",
+  "i-corintios": "1 Corintios",
+  "ii-corintios": "2 Corintios",
+  galatas: "Gálatas",
+  efesios: "Efesios",
+  filipenses: "Filipenses",
+  colosenses: "Colosenses",
+  "i-tesalonicenses": "1 Tesalonicenses",
+  "ii-tesalonicenses": "2 Tesalonicenses",
+  "i-timoteo": "1 Timoteo",
+  "ii-timoteo": "2 Timoteo",
+  tito: "Tito",
+  filemon: "Filemón",
+  hebreos: "Hebreos",
+  santiago: "Santiago",
+  "i-pedro": "1 Pedro",
+  "ii-pedro": "2 Pedro",
+  "i-juan": "1 Juan",
+  "ii-juan": "2 Juan",
+  "iii-juan": "3 Juan",
+  judas: "Judas",
+  apocalipsis: "Apocalipsis",
+};
+
+export function expandReferenceRange(reference: string) {
+  const cleanReference = reference.replace(/[()]/g, "").trim();
+  const match = cleanReference.match(
+    /^(?<book>.+?)\s+(?<chapter>\d{1,3})[,.:]\s*(?<verses>\d{1,3}(?:\.\d{1,3})*(?:[-–]\d{1,3}(?:\.\d{1,3})*)?(?:ss|s)?(?:\s*p)?)$/iu,
+  );
+
+  if (!match?.groups) return null;
+
+  const verseNumbers = [...match.groups.verses.matchAll(/\d{1,3}/gu)].map((value) => Number(value[0]));
+  if (!verseNumbers.length) return null;
+
+  const startVerse = verseNumbers[0];
+  const endVerse = verseNumbers.at(-1) ?? startVerse;
+  const hasContextMarker = /(?:ss|s)$/iu.test(match.groups.verses);
+  const contextPadding = hasContextMarker ? 3 : 0;
+
+  return {
+    book: match.groups.book.trim(),
+    chapter: Number(match.groups.chapter),
+    startVerse: Math.max(1, startVerse - contextPadding),
+    endVerse: endVerse + contextPadding,
+  };
+}
+
+export function buildScriptureLookupReference(reference: string) {
+  const parsed = expandReferenceRange(reference);
+  if (!parsed) return null;
+
+  const slug = bookSlugs[normalizeBook(parsed.book)];
+  const bookName = slug ? bookSlugToSpanishReferenceBook[slug] : null;
+  if (!bookName) return null;
+
+  const verseLabel = parsed.startVerse === parsed.endVerse
+    ? `${parsed.startVerse}`
+    : `${parsed.startVerse}-${parsed.endVerse}`;
+
+  return `${bookName} ${parsed.chapter}:${verseLabel}`;
+}
+
 export function catholicBibleUrl(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
   const match = cleanReference.match(
