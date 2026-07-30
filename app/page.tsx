@@ -11,7 +11,7 @@ type Article = {
   title: string;
   pdfTitle: string;
   text: string;
-  sourcePages: [number, number];
+  sourcePages: number[];
 };
 
 type OpenReference = { label: string };
