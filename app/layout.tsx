@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "@fontsource/unifrakturcook/latin-700.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

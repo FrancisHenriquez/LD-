@@ -172,7 +172,10 @@ function renderReferences(
 function Header() {
   return <header className="site-header">
     <div className="wordmark">
-      <h1><span aria-hidden="true">❦</span> León Dufour <span aria-hidden="true">❦</span></h1>
+      {/* The generated monogram is a decorative brand asset, not article content. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="brand-monogram" src="/ld-monogram.png" alt="Monograma ornamental LD" />
+      <h1>León Dufour</h1>
       <p>Vocabulario de teología bíblica</p>
     </div>
   </header>;
