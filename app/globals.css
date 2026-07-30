@@ -57,7 +57,6 @@ footer p { font:14px/1.7 Arial,sans-serif; }
 .modal { position:relative; width:min(600px,100%); padding:54px; border:1px solid var(--emerald); background:var(--paper); box-shadow:0 24px 80px rgba(0,0,0,.25); }
 .modal-close { position:absolute; top:15px; right:19px; width:38px; height:38px; border:1px solid var(--emerald); border-radius:50%; background:transparent; cursor:pointer; font-size:25px; }
 .modal h2 { margin:0 0 22px; font:44px Georgia,serif; }
-.reference-context { margin:0 0 28px; padding-left:20px; border-left:2px solid var(--emerald); font:18px/1.65 Georgia,serif; }
 .reference-link { display:inline-block; padding:12px 16px; border:1px solid var(--emerald); color:var(--emerald); font-size:13px; font-weight:700; text-decoration:none; transition:background .2s,color .2s; }
 .reference-link:hover { background:var(--emerald); color:var(--paper); }
 .modal-note { margin:28px 0 0; padding-top:18px; border-top:1px solid var(--line); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
