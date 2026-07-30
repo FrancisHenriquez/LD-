@@ -170,7 +170,12 @@ function renderReferences(
 }
 
 function Header() {
-  return <header className="site-header"><div className="monogram" aria-hidden="true">LD</div><div><h1>León Dufour</h1><p>Vocabulario de teología bíblica</p></div></header>;
+  return <header className="site-header">
+    <div className="wordmark">
+      <h1><span aria-hidden="true">❦</span> León Dufour <span aria-hidden="true">❦</span></h1>
+      <p>Vocabulario de teología bíblica</p>
+    </div>
+  </header>;
 }
 
 function Nav({ onHome }: { onHome?: () => void }) {
