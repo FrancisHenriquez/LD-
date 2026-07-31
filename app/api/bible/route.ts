@@ -1,37 +1,30 @@
+import { unstable_cache } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  buildJerusalemBibleLookup,
+  JERUSALEM_BIBLE_TRANSLATION_NAME,
+} from "../../catholic-bible";
+import { extractJerusalemBiblePassage } from "../../jerusalem-bible";
 
-const htmlEntities: Record<string, string> = {
-  amp: "&",
-  apos: "'",
-  quot: '"',
-  lt: "<",
-  gt: ">",
-  aacute: "á",
-  eacute: "é",
-  iacute: "í",
-  oacute: "ó",
-  uacute: "ú",
-  ntilde: "ñ",
-  Aacute: "Á",
-  Eacute: "É",
-  Iacute: "Í",
-  Oacute: "Ó",
-  Uacute: "Ú",
-  Ntilde: "Ñ",
-  nbsp: " ",
-  mdash: "—",
-  ndash: "–",
-};
+const fetchJerusalemBibleChapter = unstable_cache(
+  async (readerUrl: string) => {
+    const response = await fetch(readerUrl, {
+      headers: {
+        Accept: "text/plain; charset=utf-8",
+        "X-Return-Format": "markdown",
+      },
+      signal: AbortSignal.timeout(25_000),
+    });
 
-function decodeHtmlEntities(value: string) {
-  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (entity, code) => {
-    const lower = code.toLowerCase();
-    if (lower in htmlEntities) return htmlEntities[lower];
-    if (code.startsWith("#x")) return String.fromCodePoint(parseInt(code.slice(2), 16));
-    if (code.startsWith("#")) return String.fromCodePoint(parseInt(code.slice(1), 10));
-    return entity;
-  });
-}
+    if (!response.ok) {
+      throw new Error(`Unable to fetch Bible chapter (${response.status})`);
+    }
+
+    return response.text();
+  },
+  ["jerusalem-bible-chapter"],
+  { revalidate: 60 * 60 * 24 * 30 },
+);
 
 export async function GET(request: NextRequest) {
   const reference = request.nextUrl.searchParams.get("reference")?.trim();
@@ -39,29 +32,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Missing reference" }, { status: 400 });
   }
 
-  const url = `https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=RVR1960`;
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      Accept: "text/html,application/xhtml+xml",
-    },
-  });
-
-  if (!response.ok) {
-    return NextResponse.json({ error: "Unable to fetch Bible text" }, { status: 502 });
+  const lookup = buildJerusalemBibleLookup(reference);
+  if (!lookup) {
+    return NextResponse.json({ error: "Invalid reference" }, { status: 400 });
   }
 
-  const html = await response.text();
-  const descriptionMatch = html.match(/<meta\s+property=["']og:description["'][^>]*content=["']([^"']+)["']/i)
-    ?? html.match(/<meta\s+name=["']description["'][^>]*content=["']([^"']+)["']/i);
+  try {
+    const markdown = await fetchJerusalemBibleChapter(lookup.readerUrl);
+    const text = extractJerusalemBiblePassage(
+      markdown,
+      lookup.startVerse,
+      lookup.endVerse,
+      lookup.chapter,
+    );
 
-  const text = descriptionMatch?.[1]
-    ? decodeHtmlEntities(descriptionMatch[1]).replace(/\s+/g, " ").trim()
-    : "No se pudo recuperar el texto bíblico.";
+    if (!text) {
+      return NextResponse.json({ error: "Bible passage not found" }, { status: 502 });
+    }
 
-  return NextResponse.json({
-    referenceLabel: reference,
-    translationName: "Reina-Valera 1960",
-    text,
-  });
+    return NextResponse.json(
+      {
+        referenceLabel: lookup.referenceLabel,
+        translationName: JERUSALEM_BIBLE_TRANSLATION_NAME,
+        text,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+        },
+      },
+    );
+  } catch {
+    return NextResponse.json({ error: "Unable to fetch Bible text" }, { status: 502 });
+  }
 }

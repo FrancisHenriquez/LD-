@@ -1,8 +1,13 @@
 export const CATHOLIC_BIBLE_BASE_URL =
   "https://www.bibliacatolica.com.br/es/la-biblia-de-jerusalen";
 
+export const CATHOLIC_BIBLE_READER_BASE_URL =
+  `https://r.jina.ai/${CATHOLIC_BIBLE_BASE_URL}`;
+
 export const CATHOLIC_BIBLE_FALLBACK_URL =
   "https://www.conferenciaepiscopal.es/biblia/";
+
+export const JERUSALEM_BIBLE_TRANSLATION_NAME = "Biblia de Jerusalén";
 
 const bookSlugs: Record<string, string> = {
   gen: "genesis",
@@ -65,7 +70,7 @@ const bookSlugs: Record<string, string> = {
   abd: "abdias",
   jon: "jonas",
   miq: "miqueas",
-  nah: "nahum",
+  nah: "nahun",
   hab: "habacuc",
   sof: "sofonias",
   ag: "ageo",
@@ -157,6 +162,8 @@ const bookSlugToSpanishReferenceBook: Record<string, string> = {
   ester: "Ester",
   job: "Job",
   salmos: "Salmos",
+  "i-macabeos": "1 Macabeos",
+  "ii-macabeos": "2 Macabeos",
   proverbios: "Proverbios",
   eclesiastes: "Eclesiastés",
   cantar: "Cantares",
@@ -174,7 +181,7 @@ const bookSlugToSpanishReferenceBook: Record<string, string> = {
   abdias: "Abdías",
   jonas: "Jonás",
   miqueas: "Miqueas",
-  nahum: "Nahúm",
+  nahun: "Nahúm",
   habacuc: "Habacuc",
   sofonias: "Sofonías",
   ageo: "Ageo",
@@ -234,6 +241,10 @@ export function expandReferenceRange(reference: string) {
 }
 
 export function buildScriptureLookupReference(reference: string) {
+  return buildJerusalemBibleLookup(reference)?.referenceLabel ?? null;
+}
+
+export function buildJerusalemBibleLookup(reference: string) {
   const parsed = expandReferenceRange(reference);
   if (!parsed) return null;
 
@@ -245,7 +256,14 @@ export function buildScriptureLookupReference(reference: string) {
     ? `${parsed.startVerse}`
     : `${parsed.startVerse}-${parsed.endVerse}`;
 
-  return `${bookName} ${parsed.chapter}:${verseLabel}`;
+  return {
+    referenceLabel: `${bookName} ${parsed.chapter}:${verseLabel}`,
+    readerUrl: `${CATHOLIC_BIBLE_READER_BASE_URL}/${slug}/${parsed.chapter}/`,
+    sourceUrl: `${CATHOLIC_BIBLE_BASE_URL}/${slug}/${parsed.chapter}/`,
+    chapter: parsed.chapter,
+    startVerse: parsed.startVerse,
+    endVerse: parsed.endVerse,
+  };
 }
 
 export function catholicBibleUrl(reference: string) {

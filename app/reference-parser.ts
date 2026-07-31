@@ -2,7 +2,7 @@ export type ReferenceToken =
   | { type: "text"; value: string }
   | { type: "citation"; value: string; label: string };
 
-const bibleBooks = String.raw`(?:Gén|Gen|Éx|Ex|Lév|Lev|Núm|Num|Dt|Jos|Jue|Rut|[12I]{1,3}Sa|[12I]{1,3}Re|[12I]{1,3}Par|Esd|Neh|Est|Job|Sal|Prov|Ecl|Cant|Sab|Eclo|Is|Jer|Lam|Bar|Ez|Dan|Os|Jl|Am|Abd|Jon|Miq|Nah|Hab|Sof|Ag|Zac|Mal|Mt|Mc|Lc|Jn|Act|Hch|Rom|[12I]{1,3}Cor|Gál|Gal|Ef|Flp|Col|[12I]{1,3}Tes|[12I]{1,3}Tim|Tit|Flm|Heb|Sant|[12I]{1,3}Pe|[123I]{1,3}Jn|Jud|Ap)`;
+const bibleBooks = String.raw`(?:Gén|Gen|Éx|Ex|Lév|Lev|Núm|Num|Dt|Jos|Jue|Rut|[12I]{1,3}Sa|[12I]{1,3}Re|[12I]{1,3}Par|Esd|Neh|Tob|Jdt|Est|Job|Sal|(?:[12]|[Il]{1,3})\s*Mac|Prov|Ecl|Cant|Sab|Eclo|Is|Jer|Lam|Bar|Ez|Dan|Os|Jl|Am|Abd|Jon|Miq|Nah|Hab|Sof|Ag|Zac|Mal|Mt|Mc|Lc|Jn|Act|Hch|Rom|[12I]{1,3}Cor|Gál|Gal|Ef|Flp|Col|[12I]{1,3}Tes|[12I]{1,3}Tim|Tit|Flm|Heb|Sant|[12I]{1,3}Pe|[123I]{1,3}Jn|Jud|Ap)`;
 const verse = String.raw`\d{1,3}(?:\.\d{1,3})*(?:[-–]\d{1,3}(?:\.\d{1,3})*)?(?:ss|s)?(?:\s*p)?`;
 const chapterAndVerse = String.raw`\d{1,3}[,.:]\s*${verse}`;
 

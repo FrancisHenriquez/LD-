@@ -40,6 +40,16 @@ test("separa referencias de libros diferentes", () => {
   );
 });
 
+test("detecta los libros deuterocanónicos", () => {
+  const result = citations(
+    "(Tob 13,1; Jdt 16,1; 1 Mac 2,52; 2Mac 7,9; lMac 4,44)",
+  );
+  assert.deepEqual(
+    result.map((item) => item.label),
+    ["Tob 13,1", "Jdt 16,1", "1 Mac 2,52", "2Mac 7,9", "lMac 4,44"],
+  );
+});
+
 test("no convierte fechas ni numeración editorial", () => {
   assert.equal(citations("Xavier Léon-Dufour (1912-2007), edición 2001.").length, 0);
   assert.equal(citations("Véanse los apartados (1.2 y 3.4).").length, 0);

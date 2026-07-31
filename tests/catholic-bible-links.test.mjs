@@ -4,10 +4,14 @@ import test from 'node:test';
 import {
   CATHOLIC_BIBLE_BASE_URL,
   CATHOLIC_BIBLE_FALLBACK_URL,
+  CATHOLIC_BIBLE_READER_BASE_URL,
+  JERUSALEM_BIBLE_TRANSLATION_NAME,
+  buildJerusalemBibleLookup,
   buildScriptureLookupReference,
   catholicBibleUrl,
   expandReferenceRange
 } from '../app/catholic-bible.ts';
+import { extractJerusalemBiblePassage } from '../app/jerusalem-bible.ts';
 import { tokenizeBiblicalReferences } from '../app/reference-parser.ts';
 
 const articles = JSON.parse(
@@ -26,6 +30,10 @@ test('crea enlaces directos a La Biblia de Jerusalén', () => {
   assert.equal(
     catholicBibleUrl('Eclo 2,1ss'),
     `${CATHOLIC_BIBLE_BASE_URL}/eclesiastico/2/1/`
+  );
+  assert.equal(
+    catholicBibleUrl('Nah 1,1'),
+    `${CATHOLIC_BIBLE_BASE_URL}/nahun/1/1/`
   );
 });
 
@@ -55,6 +63,45 @@ test('construye referencias bíblicas en español para la búsqueda del texto', 
   assert.equal(buildScriptureLookupReference('Gén 12,7s'), 'Génesis 12:4-10');
 });
 
+test('construye la consulta del capítulo en La Biblia de Jerusalén', () => {
+  assert.deepEqual(buildJerusalemBibleLookup('2Mac 7,1-5'), {
+    referenceLabel: '2 Macabeos 7:1-5',
+    readerUrl: `${CATHOLIC_BIBLE_READER_BASE_URL}/ii-macabeos/7/`,
+    sourceUrl: `${CATHOLIC_BIBLE_BASE_URL}/ii-macabeos/7/`,
+    chapter: 7,
+    startVerse: 1,
+    endVerse: 5
+  });
+  assert.equal(JERUSALEM_BIBLE_TRANSLATION_NAME, 'Biblia de Jerusalén');
+});
+
+test('extrae solo el rango solicitado del capítulo de Jerusalén', () => {
+  const markdown = `Title: Juan, 3
+
+# Juan, 3
+
+**15.** para que todo el que crea tenga por él vida eterna.
+
+**16.** Porque tanto amó Dios al mundo
+que dio a su Hijo único.
+
+**17.** Porque Dios no ha enviado a su Hijo al mundo para juzgarlo.
+
+*   [Capítulo anterior](https://example.com)
+
+## Notas al pie:
+
+**16.** Este contenido no pertenece al pasaje.`;
+
+  assert.equal(
+    extractJerusalemBiblePassage(markdown, 16, 17, 3),
+    '16. Porque tanto amó Dios al mundo que dio a su Hijo único.\n\n' +
+      '17. Porque Dios no ha enviado a su Hijo al mundo para juzgarlo.'
+  );
+  assert.equal(extractJerusalemBiblePassage(markdown, 30, 31, 3), null);
+  assert.equal(extractJerusalemBiblePassage(markdown, 16, 17, 4), null);
+});
+
 test('solo genera enlaces hacia fuentes bíblicas católicas', () => {
   let total = 0;
   let fallbacks = 0;
@@ -64,9 +111,15 @@ test('solo genera enlaces hacia fuentes bíblicas católicas', () => {
       if (token.type !== 'citation') continue;
       total += 1;
       const url = catholicBibleUrl(token.label);
+      const lookup = buildJerusalemBibleLookup(token.label);
       const isJerusalemBible = url.startsWith(`${CATHOLIC_BIBLE_BASE_URL}/`);
       const isSpanishBishopsBible = url === CATHOLIC_BIBLE_FALLBACK_URL;
 
+      assert.ok(lookup, `${token.label} no generó una consulta de Jerusalén`);
+      assert.ok(
+        lookup.readerUrl.startsWith(`${CATHOLIC_BIBLE_READER_BASE_URL}/`),
+        `${token.label} generó un lector bíblico inesperado`
+      );
       assert.ok(
         isJerusalemBible || isSpanishBishopsBible,
         `${token.label} generó una fuente no católica: ${url}`
@@ -86,8 +139,15 @@ test('el código visible no contiene proveedores bíblicos no católicos', () =>
     new URL('../app/page.tsx', import.meta.url),
     'utf8'
   );
+  const route = readFileSync(
+    new URL('../app/api/bible/route.ts', import.meta.url),
+    'utf8'
+  );
+  const applicationCode = `${page}\n${route}`;
 
-  assert.equal(page.includes('biblegateway'), false);
-  assert.equal(page.includes('version=RVA'), false);
+  assert.equal(applicationCode.toLowerCase().includes('biblegateway'), false);
+  assert.equal(applicationCode.includes('RVR1960'), false);
+  assert.equal(applicationCode.includes('Reina-Valera'), false);
   assert.match(page, /Biblia de Jerusalén \(católica\)/u);
+  assert.match(route, /JERUSALEM_BIBLE_TRANSLATION_NAME/u);
 });
