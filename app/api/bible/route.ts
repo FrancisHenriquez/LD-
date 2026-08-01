@@ -5,23 +5,12 @@ import {
   JERUSALEM_BIBLE_TRANSLATION_NAME,
 } from "../../catholic-bible";
 import { extractJerusalemBiblePassage } from "../../jerusalem-bible";
+import {
+  fetchJerusalemBibleChapter as fetchChapterFromReader,
+} from "../../jerusalem-bible-reader";
 
 const fetchJerusalemBibleChapter = unstable_cache(
-  async (readerUrl: string) => {
-    const response = await fetch(readerUrl, {
-      headers: {
-        Accept: "text/plain; charset=utf-8",
-        "X-Return-Format": "markdown",
-      },
-      signal: AbortSignal.timeout(25_000),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Unable to fetch Bible chapter (${response.status})`);
-    }
-
-    return response.text();
-  },
+  fetchChapterFromReader,
   ["jerusalem-bible-chapter"],
   { revalidate: 60 * 60 * 24 * 30 },
 );
@@ -58,7 +47,7 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=86400, stale-while-revalidate=604800",
+          "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800",
         },
       },
     );

@@ -5,9 +5,13 @@ import articlesData from "./data/articles.json";
 import {
   buildScriptureLookupReference,
   catholicBibleUrl,
-  JERUSALEM_BIBLE_TRANSLATION_NAME,
 } from "./catholic-bible";
 import { tokenizeBiblicalReferences } from "./reference-parser";
+import {
+  loadScripture,
+  prefetchScripture,
+  type Scripture,
+} from "./scripture-client";
 
 const terms = `Abraham|Acción de gracias|Aceite|Adán|Adoración|Agua|Alabanza|Alianza|Alimento|Alma|Altar|Amén|Amigo|Amor|Ángeles|Animales|Anticristo|Apóstoles|Árbol|Arca|Ascensión|Astros|Autoridad|Ayuno|Babel - Babilonia|Bautismo|Bendición|Bestias|Bien - Mal|Bienaventuranza|Blanco|Brazo|Buscar|Calamidad|Camino|Carisma|Carne|Casa|Castigos|Cautividad|Celo|Cielo|Circuncisión|Comida|Comunión|Confesión|Confianza|Conocer|Consolación|Copa|Corazón|Cordero de Dios|Creación|Crecimiento|Cruz|Cuerpo|Cuerpo de Cristo|Cuidados|Culto|Cumplir|David|Demonios|Deseo|Desierto|Designio de Dios|Día del Señor|Diestra|Diluvio|Dios|Discípulo|Dispersión|Don|Edificar|Educación|Egipto|Ejemplo|Elección|Elías|Embriaguez|Endurecimiento|Enemigo|Enfermedad - Curación|Enseñar|Error|Escándalo|Esclavo|Escritura|Escuchar|Esperanza|Espíritu|Espíritu de Dios|Esposo|Esterilidad|Eucaristía|Evangelio|Exhortar|Exilio|Éxodo|Expiación|Extranjero|Fariseos|Fe|Fecundidad|Fidelidad|Fiestas|Figura|Fruto|Fuego|Fuerza|Generación|Gloria|Gozo|Gracia|Guerra|Gustar|Hambre y sed|Hebreo|Herencia|Hermano|Hijo|Hijo del hombre|Hipócrita|Hombre|Hora|Hospitalidad|Humildad|Ídolos|Iglesia|Imagen|Impío|Imposición de manos|Incredulidad|Infierno|Ira|Israel|Jerusalén|Jesús|Juan Bautista|Judío|Juicio|Justicia|Justificación|Labios|Lámpara|Leche|Lengua|Lepra|Ley|Liberación - Libertad|Libro|Limosna|Locura|Lomos y riñones|Luz|Madre|Maldición|Maná|Mansedumbre|Mar|María|Mártir|Matrimonio|Mediador|Memoria|Mentira|Mesías|Milagro|Ministerio|Misericordia|Misión|Misterio|Moisés|Montaña|Muerte|Mujer|Mundo|Nacimiento (nuevo)|Naciones|Niño|Noche|Nombre|Nube|Nuevo|Números|Obediencia|Obras|Odio|Oración|Orgullo|Paciencia|Padres y Padre|Palabra de Dios|Palabra humana|Pan|Parábola|Paráclito|Paraíso|Pascua|Pastor - Rebaño|Patria|Paz|Pecado|Pedro|Penitencia - Conversión|Pentecostés|Perdón|Perfección|Permanecer|Persecución|Piedad|Piedra|Plenitud|Pobres|Poder|Predicar|Presencia de Dios|Primicias|Proceso|Profeta|Prójimo|Promesas|Prueba - Tentación|Pueblo|Puerta|Puro|Reconciliación|Redención|Reino|Reposo|Resto|Resurrección|Retribución|Revelación|Rey|Riquezas|Risa|Roca|Rodilla|Rostro|Sábado|Sabiduría|Sacerdocio|Sacrificio|Salvación|Sangre|Santo|Satán|Seguir|Sello|Semana|Sembrar|Sencillo|Señor|Servir|Siega|Siervo de Yahveh|Silencio|Soberbia|Soledad|Sombra|Sueño|Sufrimiento|Temor|Templo|Testimonio|Tiempo|Tierra|Tormenta|Trabajo|Tradición|Transfiguración|Tristeza|Unción|Unidad|Velar|Vendimia|Venganza|Ver|Verdad|Vergüenza|Vestido|Victoria|Vida|Vino|Viña|Virginidad|Visita|Vocación|Voluntad de Dios`.split("|");
 
@@ -100,7 +104,19 @@ function ArticleBody({
   article: Article;
   onOpenReference: (reference: OpenReference) => void;
 }) {
-  const paragraphs = article.text.split(/\n{2,}/).filter(Boolean);
+  const paragraphs = useMemo(() => article.text.split(/\n{2,}/).filter(Boolean), [article.text]);
+  const firstReference = useMemo(() => {
+    for (const paragraph of paragraphs) {
+      const citation = tokenizeBiblicalReferences(paragraph).find((token) => token.type === "citation");
+      if (citation?.type === "citation") return citation.label;
+    }
+    return null;
+  }, [paragraphs]);
+
+  useEffect(() => {
+    if (firstReference) prefetchScripture(firstReference);
+  }, [firstReference]);
+
   return <div className="article-body">
     {paragraphs.map((paragraph, index) => {
       const heading =
@@ -134,6 +150,9 @@ function renderReferences(
           event.preventDefault();
           onOpenReference({ label: token.label });
         }}
+        onFocus={() => prefetchScripture(token.label)}
+        onPointerDown={() => prefetchScripture(token.label)}
+        onPointerEnter={() => prefetchScripture(token.label)}
         aria-label={`Consultar la referencia bíblica ${token.label}`}
       >
         {token.value}
@@ -167,14 +186,14 @@ function Footer() {
 }
 
 function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
-  const [scripture, setScripture] = useState<{ text: string; referenceLabel: string; translationName: string } | null>(null);
+  const [scripture, setScripture] = useState<Scripture | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadScripture() {
+    async function loadScriptureForModal() {
       const lookupReference = buildScriptureLookupReference(reference.label);
       if (!lookupReference) {
         if (!cancelled) {
@@ -189,24 +208,11 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
       setScripture(null);
 
       try {
-        const response = await fetch(`/api/bible?reference=${encodeURIComponent(reference.label)}`);
-        if (!response.ok) throw new Error("No se encontró el texto bíblico");
-
-        const data = await response.json() as {
-          referenceLabel?: string;
-          translationName?: string;
-          text?: string;
-        };
+        const data = await loadScripture(reference.label);
 
         if (cancelled) return;
 
-        const renderedText = data.text?.trim() || "No se pudo recuperar el texto bíblico.";
-
-        setScripture({
-          text: renderedText,
-          referenceLabel: data.referenceLabel ?? lookupReference,
-          translationName: data.translationName ?? JERUSALEM_BIBLE_TRANSLATION_NAME,
-        });
+        setScripture(data);
       } catch {
         if (!cancelled) {
           setErrorMessage("No se pudo cargar el texto bíblico en este momento.");
@@ -216,7 +222,7 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
       }
     }
 
-    loadScripture();
+    loadScriptureForModal();
     return () => {
       cancelled = true;
     };
