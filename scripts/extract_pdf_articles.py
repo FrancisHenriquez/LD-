@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract the user-provided Léon-Dufour PDF into the site's static data."""
+"""Extrae el PDF de Léon-Dufour y genera los datos estáticos del sitio."""
 
 from __future__ import annotations
 
@@ -16,11 +16,13 @@ OUTPUT = ROOT / "app/data/articles.json"
 
 
 def normalize(value: str) -> str:
+    """Normaliza un texto sin tildes ni signos para comparar encabezados."""
     value = unicodedata.normalize("NFD", value).encode("ascii", "ignore").decode()
     return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
 
 
 def extract_terms() -> list[str]:
+    """Lee de la página principal el índice canónico y conserva su orden."""
     source = (ROOT / "app/page.tsx").read_text(encoding="utf-8")
     match = re.search(r"const terms = `([^`]+)`\.split", source, re.S)
     if not match:
@@ -29,10 +31,12 @@ def extract_terms() -> list[str]:
 
 
 def page_lines(page: str) -> list[str]:
+    """Divide una página en líneas y elimina solo los espacios del extremo derecho."""
     return [line.rstrip() for line in page.splitlines()]
 
 
 def first_nonempty(page: str) -> str:
+    """Devuelve la primera línea con contenido de una página, o una cadena vacía."""
     for line in page_lines(page):
         if line.strip():
             return line.strip()
@@ -40,6 +44,7 @@ def first_nonempty(page: str) -> str:
 
 
 def clean_article(pages: list[str], heading: str) -> str:
+    """Une las páginas de un artículo y repara cortes introducidos por el PDF."""
     lines: list[str] = []
     for page_number, page in enumerate(pages):
         current = page_lines(page)
@@ -51,7 +56,7 @@ def clean_article(pages: list[str], heading: str) -> str:
         lines.extend(current)
         lines.append("")
 
-    # Join PDF-wrapped lines while retaining paragraph and heading breaks.
+    # Une las líneas cortadas por el PDF sin perder separaciones entre párrafos.
     paragraphs: list[str] = []
     buffer: list[str] = []
     for line in lines:
@@ -73,6 +78,7 @@ def clean_article(pages: list[str], heading: str) -> str:
 
 
 def main() -> None:
+    """Convierte el PDF, localiza cada artículo y escribe el JSON consumido por la app."""
     if not PDF.exists():
         raise FileNotFoundError(PDF)
     TEXT.parent.mkdir(parents=True, exist_ok=True)

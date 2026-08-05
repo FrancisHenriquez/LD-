@@ -129,6 +129,9 @@ const bookSlugs: Record<string, string> = {
   ap: "apocalipsis",
 };
 
+/**
+ * Normaliza la abreviatura de un libro para buscarla en el mapa de slugs.
+ */
 function normalizeBook(book: string) {
   const normalized = book
     .normalize("NFD")
@@ -216,6 +219,10 @@ const bookSlugToSpanishReferenceBook: Record<string, string> = {
   apocalipsis: "Apocalipsis",
 };
 
+/**
+ * Interpreta una cita y devuelve su libro, capítulo y rango de versículos.
+ * Las marcas finales `s` o `ss` amplían el rango tres versículos por lado.
+ */
 export function expandReferenceRange(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
   const match = cleanReference.match(
@@ -240,10 +247,17 @@ export function expandReferenceRange(reference: string) {
   };
 }
 
+/**
+ * Convierte una cita admitida en la etiqueta canónica usada para buscarla.
+ */
 export function buildScriptureLookupReference(reference: string) {
   return buildJerusalemBibleLookup(reference)?.referenceLabel ?? null;
 }
 
+/**
+ * Construye la etiqueta, las URL y el rango necesarios para consultar una cita.
+ * Devuelve `null` cuando la referencia o el libro no son reconocidos.
+ */
 export function buildJerusalemBibleLookup(reference: string) {
   const parsed = expandReferenceRange(reference);
   if (!parsed) return null;
@@ -266,6 +280,10 @@ export function buildJerusalemBibleLookup(reference: string) {
   };
 }
 
+/**
+ * Genera la URL pública de una cita, apuntando a su primer versículo.
+ * Si la cita no es válida, devuelve la página bíblica alternativa.
+ */
 export function catholicBibleUrl(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
   const match = cleanReference.match(

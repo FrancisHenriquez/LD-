@@ -26,20 +26,27 @@ type OpenReference = { label: string };
 
 const articles = articlesData as Record<string, Article>;
 
+/**
+ * Muestra el índice del vocabulario y coordina la búsqueda, la lectura de
+ * artículos y la apertura de referencias bíblicas en un modal.
+ */
 export default function Home() {
   const [query, setQuery] = useState("");
   const [activeTerm, setActiveTerm] = useState<string | null>(null);
   const [openRef, setOpenRef] = useState<OpenReference | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // Recalcula los términos visibles solo cuando cambia el texto de búsqueda.
   const filtered = useMemo(() => terms.filter((term) =>
     term.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
       .includes(query.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase())
   ), [query]);
 
+  // Enfoca el botón de cierre y permite cerrar el modal con la tecla Escape.
   useEffect(() => {
     if (!openRef) return;
     closeRef.current?.focus();
+    /** Cierra la referencia activa cuando se presiona Escape. */
     const close = (event: KeyboardEvent) => event.key === "Escape" && setOpenRef(null);
     document.addEventListener("keydown", close);
     return () => document.removeEventListener("keydown", close);
@@ -97,6 +104,10 @@ export default function Home() {
   );
 }
 
+/**
+ * Convierte el texto de un artículo en títulos y párrafos, transforma sus
+ * citas bíblicas en enlaces interactivos y precarga la primera cita detectada.
+ */
 function ArticleBody({
   article,
   onOpenReference,
@@ -105,6 +116,7 @@ function ArticleBody({
   onOpenReference: (reference: OpenReference) => void;
 }) {
   const paragraphs = useMemo(() => article.text.split(/\n{2,}/).filter(Boolean), [article.text]);
+  // Busca una sola cita inicial para adelantar su carga mientras se lee el artículo.
   const firstReference = useMemo(() => {
     for (const paragraph of paragraphs) {
       const citation = tokenizeBiblicalReferences(paragraph).find((token) => token.type === "citation");
@@ -113,6 +125,7 @@ function ArticleBody({
     return null;
   }, [paragraphs]);
 
+  // Inicia la precarga cuando el contenido proporciona una referencia válida.
   useEffect(() => {
     if (firstReference) prefetchScripture(firstReference);
   }, [firstReference]);
@@ -133,6 +146,13 @@ function ArticleBody({
   </div>;
 }
 
+/**
+ * Tokeniza un fragmento de texto y devuelve contenido React donde cada cita
+ * bíblica abre el modal y anticipa su carga al recibir interacción.
+ *
+ * @param text Texto del artículo que puede contener referencias bíblicas.
+ * @param onOpenReference Callback que selecciona la referencia que se consultará.
+ */
 function renderReferences(
   text: string,
   onOpenReference: (reference: OpenReference) => void,
@@ -147,6 +167,7 @@ function renderReferences(
         target="_blank"
         rel="noreferrer"
         onClick={(event) => {
+          // Mantiene la consulta dentro de la aplicación en vez de navegar al enlace.
           event.preventDefault();
           onOpenReference({ label: token.label });
         }}
@@ -161,10 +182,11 @@ function renderReferences(
   });
 }
 
+/** Muestra la cabecera editorial y la identidad visual del sitio. */
 function Header() {
   return <header className="site-header">
     <div className="wordmark">
-      {/* The generated monogram is a decorative brand asset, not article content. */}
+      {/* El monograma generado es un recurso decorativo de marca, no contenido del artículo. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img className="brand-monogram" src="/ld-monogram.png" alt="Monograma ornamental LD" />
       <h1>León Dufour</h1>
@@ -173,10 +195,15 @@ function Header() {
   </header>;
 }
 
+/**
+ * Renderiza la navegación principal y, cuando se proporciona `onHome`, permite
+ * volver desde un artículo al índice sin recargar la página.
+ */
 function Nav({ onHome }: { onHome?: () => void }) {
   return <nav aria-label="Navegación principal"><button onClick={onHome}>Inicio</button><a href="#informacion">Información</a><span aria-hidden="true">✣</span></nav>;
 }
 
+/** Presenta los datos bibliográficos y el alcance de esta edición digital. */
 function Footer() {
   return <footer id="informacion">
     <div className="footer-mark">LD</div>
@@ -185,14 +212,20 @@ function Footer() {
   </footer>;
 }
 
+/**
+ * Consulta y presenta una referencia bíblica en un diálogo accesible.
+ * Cancela las actualizaciones de estado si cambia la referencia o se desmonta.
+ */
 function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
   const [scripture, setScripture] = useState<Scripture | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Sincroniza el contenido del diálogo con la referencia seleccionada.
   useEffect(() => {
     let cancelled = false;
 
+    /** Valida la referencia, solicita el pasaje y actualiza el estado del modal. */
     async function loadScriptureForModal() {
       const lookupReference = buildScriptureLookupReference(reference.label);
       if (!lookupReference) {

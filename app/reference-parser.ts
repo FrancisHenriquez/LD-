@@ -26,6 +26,9 @@ const inheritedOnlyPattern = new RegExp(
   "iu",
 );
 
+/**
+ * Añade texto a la lista y lo fusiona con el fragmento de texto anterior.
+ */
 function pushText(tokens: ReferenceToken[], value: string) {
   if (!value) return;
   const previous = tokens.at(-1);
@@ -36,6 +39,10 @@ function pushText(tokens: ReferenceToken[], value: string) {
   }
 }
 
+/**
+ * Separa una secuencia de citas y conserva el último libro para referencias
+ * posteriores que solo indiquen capítulo y versículo.
+ */
 function tokenizeSequence(
   value: string,
   inheritedBook: string | null,
@@ -80,6 +87,10 @@ function tokenizeSequence(
   return { tokens, lastBook };
 }
 
+/**
+ * Divide un texto en fragmentos literales y citas bíblicas reconocibles.
+ * Mantiene intacto el contenido original de cada fragmento.
+ */
 export function tokenizeBiblicalReferences(text: string): ReferenceToken[] {
   const tokens: ReferenceToken[] = [];
   let cursor = 0;
@@ -94,6 +105,7 @@ export function tokenizeBiblicalReferences(text: string): ReferenceToken[] {
 
     const content = isParenthetical ? match[0].slice(1, -1) : match[0];
     const result = tokenizeSequence(content, lastBook);
+    // Reincorpora la secuencia sin dejar fragmentos de texto adyacentes.
     result.tokens.forEach((token) => {
       if (token.type === "text") pushText(tokens, token.value);
       else tokens.push(token);

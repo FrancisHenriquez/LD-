@@ -15,6 +15,13 @@ const fetchJerusalemBibleChapter = unstable_cache(
   { revalidate: 60 * 60 * 24 * 30 },
 );
 
+/**
+ * Atiende consultas GET de pasajes bíblicos, valida la referencia, obtiene el
+ * capítulo almacenado en caché y devuelve el rango solicitado como JSON.
+ *
+ * @param request Solicitud cuya query `reference` contiene la cita bíblica.
+ * @returns El pasaje encontrado o una respuesta de error con estado 400/502.
+ */
 export async function GET(request: NextRequest) {
   const reference = request.nextUrl.searchParams.get("reference")?.trim();
   if (!reference) {

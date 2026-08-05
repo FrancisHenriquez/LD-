@@ -2,6 +2,10 @@ import { desc } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { notes } from "../../../db/schema";
 
+/**
+ * Convierte errores de D1 en mensajes de la API y añade una guía de migración
+ * cuando la tabla de ejemplo todavía no existe.
+ */
 function toRouteErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "Unexpected error";
   const detail =
@@ -15,6 +19,7 @@ function toRouteErrorMessage(error: unknown) {
   return message;
 }
 
+/** Devuelve las 20 notas más recientes del ejemplo D1. */
 export async function GET() {
   try {
     const db = getDb();
@@ -33,6 +38,7 @@ export async function GET() {
   }
 }
 
+/** Valida el cuerpo de la petición y crea una nota nueva. */
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as {

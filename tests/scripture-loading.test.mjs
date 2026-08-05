@@ -14,6 +14,7 @@ test('deduplica y conserva una cita cargada en el navegador', async (context) =>
 
   let requests = 0;
   let finishRequest;
+  // Mantiene la petición pendiente para comprobar que dos llamadas comparten la promesa.
   globalThis.fetch = () => {
     requests += 1;
     return new Promise((resolve) => {
@@ -49,6 +50,7 @@ test('no conserva los errores de carga en la caché del navegador', async (conte
   });
 
   let requests = 0;
+  // Simula un fallo transitorio seguido de una respuesta válida para probar el reintento.
   globalThis.fetch = async () => {
     requests += 1;
     if (requests === 1) return new Response(null, { status: 502 });
@@ -66,6 +68,7 @@ test('no conserva los errores de carga en la caché del navegador', async (conte
 test('coalesce descargas simultáneas del mismo capítulo', async () => {
   let requests = 0;
   let finishRequest;
+  // Permite resolver la descarga manualmente después de iniciar ambas llamadas.
   const fetcher = () => {
     requests += 1;
     return new Promise((resolve) => {
@@ -86,6 +89,7 @@ test('coalesce descargas simultáneas del mismo capítulo', async () => {
 
 test('solicita únicamente el bloque bíblico y tolera la caché mensual', async () => {
   let capturedOptions;
+  // Captura las opciones sin acceder a la red para inspeccionar las cabeceras enviadas.
   const fetcher = async (_url, options) => {
     capturedOptions = options;
     return new Response('Title: Juan, 4\n\n**1.** Texto');

@@ -15,6 +15,10 @@ type Fetcher = typeof fetch;
 
 const chapterRequests = new Map<string, Promise<string>>();
 
+/**
+ * Descarga un capítulo en Markdown y reutiliza solicitudes simultáneas a la
+ * misma URL. El `fetcher` inyectable permite probar la carga sin usar la red.
+ */
 export function fetchJerusalemBibleChapter(
   readerUrl: string,
   fetcher: Fetcher = fetch,
@@ -22,6 +26,7 @@ export function fetchJerusalemBibleChapter(
   const pending = chapterRequests.get(readerUrl);
   if (pending) return pending;
 
+  // Convierte una respuesta HTTP correcta en el cuerpo Markdown del capítulo.
   const request = fetcher(readerUrl, {
     headers: JERUSALEM_BIBLE_READER_HEADERS,
     signal: AbortSignal.timeout(25_000),
@@ -34,12 +39,13 @@ export function fetchJerusalemBibleChapter(
   });
 
   chapterRequests.set(readerUrl, request);
+  // Libera la solicitud compartida cuando termina, sin borrar una más reciente.
   void request.finally(() => {
     if (chapterRequests.get(readerUrl) === request) {
       chapterRequests.delete(readerUrl);
     }
   }).catch(() => {
-    // The original promise carries the error to its caller.
+    // La promesa original comunica el error a quien hizo la llamada.
   });
 
   return request;

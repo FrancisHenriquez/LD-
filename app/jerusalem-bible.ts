@@ -1,3 +1,6 @@
+/**
+ * Elimina enlaces, imágenes y marcas de formato para obtener texto legible.
+ */
 function plainTextFromMarkdown(value: string) {
   return value
     .replace(/^>\s?/gmu, "")
@@ -9,6 +12,10 @@ function plainTextFromMarkdown(value: string) {
     .trim();
 }
 
+/**
+ * Extrae del Markdown los versículos solicitados después de validar el capítulo.
+ * Devuelve el pasaje numerado o `null` si el contenido no corresponde.
+ */
 export function extractJerusalemBiblePassage(
   markdown: string,
   startVerse: number,
@@ -31,6 +38,7 @@ export function extractJerusalemBiblePassage(
     : contentFromFirstVerse.slice(0, navigationIndex);
   const markers = [...chapterContent.matchAll(verseMarker)];
 
+  // Selecciona cada marcador dentro del rango y limpia el texto que lo sigue.
   const verses = markers.flatMap((marker, index) => {
     const verseNumber = Number(marker[1]);
     if (verseNumber < startVerse || verseNumber > endVerse) return [];
