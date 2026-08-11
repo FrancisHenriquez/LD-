@@ -1,14 +1,22 @@
-const BIBLE_EDGE_CACHE_VERSION = "v5";
+const BIBLE_EDGE_CACHE_VERSION = "v6";
+const BIBLE_EDGE_CACHE_NAME = "bible-passages-v6";
 
 type BibleEdgeCache = Pick<Cache, "match" | "put">;
 type WorkerCacheStorage = CacheStorage & { default?: Cache };
 
-function getDefaultBibleEdgeCache(): BibleEdgeCache | null {
+async function getDefaultBibleEdgeCache(): Promise<BibleEdgeCache | null> {
   const cacheStorage = (globalThis as typeof globalThis & {
     caches?: WorkerCacheStorage;
   }).caches;
 
-  return cacheStorage?.default ?? null;
+  if (!cacheStorage) return null;
+  if (cacheStorage.default) return cacheStorage.default;
+
+  try {
+    return await cacheStorage.open(BIBLE_EDGE_CACHE_NAME);
+  } catch {
+    return null;
+  }
 }
 
 function buildBibleEdgeCacheKey(referenceLabel: string, origin: string) {
@@ -24,13 +32,14 @@ function buildBibleEdgeCacheKey(referenceLabel: string, origin: string) {
 export async function readBibleEdgeCache(
   referenceLabel: string,
   translationName: string,
-  cache: BibleEdgeCache | null = getDefaultBibleEdgeCache(),
+  cache?: BibleEdgeCache | null,
   origin = "https://bible-cache.invalid",
 ) {
-  if (!cache) return null;
+  const resolvedCache = cache === undefined ? await getDefaultBibleEdgeCache() : cache;
+  if (!resolvedCache) return null;
 
   try {
-    const response = await cache.match(buildBibleEdgeCacheKey(referenceLabel, origin));
+    const response = await resolvedCache.match(buildBibleEdgeCacheKey(referenceLabel, origin));
     if (!response?.ok) return null;
 
     const payload = await response.clone().json() as Record<string, unknown>;
@@ -54,10 +63,11 @@ export async function readBibleEdgeCache(
 export async function writeBibleEdgeCache(
   referenceLabel: string,
   response: Response,
-  cache: BibleEdgeCache | null = getDefaultBibleEdgeCache(),
+  cache?: BibleEdgeCache | null,
   origin = "https://bible-cache.invalid",
 ) {
-  if (!cache) return;
+  const resolvedCache = cache === undefined ? await getDefaultBibleEdgeCache() : cache;
+  if (!resolvedCache) return;
 
   try {
     const cachedResponse = response.clone();
@@ -66,7 +76,7 @@ export async function writeBibleEdgeCache(
     headers.set("Cache-Control", "public, max-age=31536000");
     headers.set("X-Bible-Cache", "HIT");
 
-    await cache.put(
+    await resolvedCache.put(
       buildBibleEdgeCacheKey(referenceLabel, origin),
       new Response(cachedResponse.body, { status: cachedResponse.status, headers }),
     );

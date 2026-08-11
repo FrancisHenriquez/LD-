@@ -266,7 +266,7 @@ test('sirve una copia validada de la caché de borde y tolera sus fallos', async
   assert.equal(response.headers.get('X-Bible-Cache'), 'HIT');
   assert.equal((await response.json()).text, '16. Porque tanto amó Dios al mundo.');
   assert.equal(matches, 1);
-  assert.match(matchedUrl, /^https:\/\/vocabulario\.example\/\.openai-cache\/bible\/v5\//u);
+  assert.match(matchedUrl, /^https:\/\/vocabulario\.example\/\.openai-cache\/bible\/v6\//u);
 
   await writeBibleEdgeCache(
     'Juan 3:16',
