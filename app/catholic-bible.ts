@@ -1,8 +1,14 @@
 export const CATHOLIC_BIBLE_BASE_URL =
+  "https://bdj.alpichel.com";
+
+export const CATHOLIC_BIBLE_PRIMARY_READER_BASE_URL =
+  "https://www.bibliacatolica.net";
+
+export const CATHOLIC_BIBLE_LEGACY_BASE_URL =
   "https://www.bibliacatolica.com.br/es/la-biblia-de-jerusalen";
 
 export const CATHOLIC_BIBLE_READER_BASE_URL =
-  `https://r.jina.ai/${CATHOLIC_BIBLE_BASE_URL}`;
+  `https://r.jina.ai/${CATHOLIC_BIBLE_LEGACY_BASE_URL}`;
 
 export const CATHOLIC_BIBLE_FALLBACK_URL =
   "https://www.conferenciaepiscopal.es/biblia/";
@@ -216,27 +222,166 @@ const bookSlugToSpanishReferenceBook: Record<string, string> = {
   apocalipsis: "Apocalipsis",
 };
 
-export function expandReferenceRange(reference: string) {
+const primaryReaderSlugOverrides: Record<string, string> = {
+  cantar: "cantar-de-los-cantares",
+  hechos: "hechos-de-los-apostoles",
+  nahun: "nahum",
+};
+
+const backupReaderSlugOverrides: Record<string, string> = {
+  "i-samuel": "primer_libro_de_samuel",
+  "ii-samuel": "segundo_libro_de_samuel",
+  "i-reyes": "primer_libro_de_los_reyes",
+  "ii-reyes": "segundo_libro_de_los_reyes",
+  "i-cronicas": "primer_libro_de_cronicas",
+  "ii-cronicas": "segundo_libro_de_cronicas",
+  "i-macabeos": "primer_libro_de_los_macabeos",
+  "ii-macabeos": "segundo_libro_de_los_macabeos",
+  eclesiastes: "qohelet_eclesiastes",
+  cantar: "cantar_de_los_cantares",
+  eclesiastico: "siracida_eclesiastico",
+  nahun: "nahum",
+  mateo: "evangelio_segun_san_mateo",
+  marcos: "evangelio_segun_san_marcos",
+  lucas: "evangelio_segun_san_lucas",
+  juan: "evangelio_segun_san_juan",
+  hechos: "hechos_de_los_apostoles",
+  romanos: "carta_a_los_romanos",
+  "i-corintios": "primera_carta_a_los_corintios",
+  "ii-corintios": "segunda_carta_a_los_corintios",
+  "i-tesalonicenses": "primera_carta_a_los_tesalonicenses",
+  "ii-tesalonicenses": "segunda_carta_a_los_tesalonicenses",
+  "i-timoteo": "primera_carta_a_timoteo",
+  "ii-timoteo": "segunda_carta_a_timoteo",
+  tito: "carta_a_tito",
+  filemon: "carta_a_filemon",
+  hebreos: "carta_a_los_hebreos",
+  santiago: "epistola_de_santiago",
+  "i-pedro": "primera_epistola_de_san_pedro",
+  "ii-pedro": "segunda_epistola_de_san_pedro",
+  "i-juan": "primera_epistola_de_san_juan",
+  "ii-juan": "segunda_epistola_de_san_juan",
+  "iii-juan": "tercera_epistola_de_san_juan",
+  judas: "epistola_de_san_judas",
+};
+
+function primaryReaderSlug(bookSlug: string) {
+  const overridden = primaryReaderSlugOverrides[bookSlug];
+  if (overridden) return overridden;
+
+  return bookSlug
+    .replace(/^iii-/u, "3-")
+    .replace(/^ii-/u, "2-")
+    .replace(/^i-/u, "1-");
+}
+
+function backupReaderSlug(bookSlug: string) {
+  return backupReaderSlugOverrides[bookSlug] ?? bookSlug;
+}
+
+export type JerusalemBibleProviderId =
+  | "bibliacatolica-net"
+  | "alpichel"
+  | "legacy-jina";
+
+export type JerusalemBibleChapterSource = {
+  id: JerusalemBibleProviderId;
+  url: string;
+};
+
+export type JerusalemBibleVerseRange = {
+  startVerse: number;
+  endVerse: number;
+};
+
+const BIBLE_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<verses>\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*\.\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*(?:ss|s)?(?:\s*p)?)$/iu;
+
+export function buildJerusalemBibleChapterSources(bookSlug: string, chapter: number) {
+  return [
+    {
+      id: "bibliacatolica-net",
+      url: `${CATHOLIC_BIBLE_PRIMARY_READER_BASE_URL}/${primaryReaderSlug(bookSlug)}/${chapter}`,
+    },
+    {
+      id: "alpichel",
+      url: `${CATHOLIC_BIBLE_BASE_URL}/${backupReaderSlug(bookSlug)}/${chapter}`,
+    },
+    {
+      id: "legacy-jina",
+      url: `${CATHOLIC_BIBLE_READER_BASE_URL}/${bookSlug}/${chapter}/`,
+    },
+  ] satisfies JerusalemBibleChapterSource[];
+}
+
+export function expandReferenceRanges(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
-  const match = cleanReference.match(
-    /^(?<book>.+?)\s+(?<chapter>\d{1,3})[,.:]\s*(?<verses>\d{1,3}(?:\.\d{1,3})*(?:[-–]\d{1,3}(?:\.\d{1,3})*)?(?:ss|s)?(?:\s*p)?)$/iu,
-  );
+  const match = cleanReference.match(BIBLE_REFERENCE_PATTERN);
 
   if (!match?.groups) return null;
 
-  const verseNumbers = [...match.groups.verses.matchAll(/\d{1,3}/gu)].map((value) => Number(value[0]));
-  if (!verseNumbers.length) return null;
+  const compactVerses = match.groups.verses.replace(/\s/gu, "");
+  const withoutParallelMarker = compactVerses.replace(/p$/iu, "");
+  const hasContextMarker = /(?:ss|s)$/iu.test(withoutParallelMarker);
+  const verseExpression = withoutParallelMarker.replace(/(?:ss|s)$/iu, "");
+  const verseRanges: JerusalemBibleVerseRange[] = [];
 
-  const startVerse = verseNumbers[0];
-  const endVerse = verseNumbers.at(-1) ?? startVerse;
-  const hasContextMarker = /(?:ss|s)$/iu.test(match.groups.verses);
-  const contextPadding = hasContextMarker ? 3 : 0;
+  for (const segment of verseExpression.split(".")) {
+    const segmentMatch = segment.match(/^(?<start>\d{1,3})(?:[-–](?<end>\d{1,3}))?$/u);
+    if (!segmentMatch?.groups) return null;
+
+    const startVerse = Number(segmentMatch.groups.start);
+    const endVerse = Number(segmentMatch.groups.end ?? segmentMatch.groups.start);
+    if (startVerse < 1 || endVerse < 1) return null;
+
+    verseRanges.push({
+      startVerse: Math.min(startVerse, endVerse),
+      endVerse: Math.max(startVerse, endVerse),
+    });
+  }
+
+  const finalRange = verseRanges.at(-1);
+  if (!finalRange) return null;
+
+  if (hasContextMarker) {
+    finalRange.startVerse = Math.max(1, finalRange.startVerse - 3);
+    finalRange.endVerse += 3;
+  }
+
+  const mergedVerseRanges: JerusalemBibleVerseRange[] = [];
+  for (const range of verseRanges) {
+    const previousRange = mergedVerseRanges.at(-1);
+    const overlapsPrevious = previousRange
+      && range.startVerse <= previousRange.endVerse
+      && range.endVerse >= previousRange.startVerse;
+
+    if (previousRange && overlapsPrevious) {
+      previousRange.startVerse = Math.min(previousRange.startVerse, range.startVerse);
+      previousRange.endVerse = Math.max(previousRange.endVerse, range.endVerse);
+      continue;
+    }
+
+    mergedVerseRanges.push({ ...range });
+  }
 
   return {
     book: match.groups.book.trim(),
     chapter: Number(match.groups.chapter),
-    startVerse: Math.max(1, startVerse - contextPadding),
-    endVerse: endVerse + contextPadding,
+    verseRanges: mergedVerseRanges,
+  };
+}
+
+export function expandReferenceRange(reference: string) {
+  const parsed = expandReferenceRanges(reference);
+  if (!parsed) return null;
+
+  const startVerse = Math.min(...parsed.verseRanges.map((range) => range.startVerse));
+  const endVerse = Math.max(...parsed.verseRanges.map((range) => range.endVerse));
+
+  return {
+    book: parsed.book,
+    chapter: parsed.chapter,
+    startVerse,
+    endVerse,
   };
 }
 
@@ -245,32 +390,35 @@ export function buildScriptureLookupReference(reference: string) {
 }
 
 export function buildJerusalemBibleLookup(reference: string) {
-  const parsed = expandReferenceRange(reference);
+  const parsed = expandReferenceRanges(reference);
   if (!parsed) return null;
 
   const slug = bookSlugs[normalizeBook(parsed.book)];
   const bookName = slug ? bookSlugToSpanishReferenceBook[slug] : null;
   if (!bookName) return null;
 
-  const verseLabel = parsed.startVerse === parsed.endVerse
-    ? `${parsed.startVerse}`
-    : `${parsed.startVerse}-${parsed.endVerse}`;
+  const verseLabel = parsed.verseRanges.map(({ startVerse, endVerse }) => (
+    startVerse === endVerse ? `${startVerse}` : `${startVerse}-${endVerse}`
+  )).join(", ");
+  const startVerse = Math.min(...parsed.verseRanges.map((range) => range.startVerse));
+  const endVerse = Math.max(...parsed.verseRanges.map((range) => range.endVerse));
 
   return {
     referenceLabel: `${bookName} ${parsed.chapter}:${verseLabel}`,
     readerUrl: `${CATHOLIC_BIBLE_READER_BASE_URL}/${slug}/${parsed.chapter}/`,
-    sourceUrl: `${CATHOLIC_BIBLE_BASE_URL}/${slug}/${parsed.chapter}/`,
+    sourceUrl: `${CATHOLIC_BIBLE_BASE_URL}/${backupReaderSlug(slug)}/${parsed.chapter}#v${startVerse}`,
+    bookSlug: slug,
+    sources: buildJerusalemBibleChapterSources(slug, parsed.chapter),
     chapter: parsed.chapter,
-    startVerse: parsed.startVerse,
-    endVerse: parsed.endVerse,
+    startVerse,
+    endVerse,
+    verseRanges: parsed.verseRanges,
   };
 }
 
 export function catholicBibleUrl(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
-  const match = cleanReference.match(
-    /^(?<book>.+?)\s+(?<chapter>\d{1,3})[,.:]\s*(?<verses>\d{1,3}(?:\.\d{1,3})*(?:[-–]\d{1,3}(?:\.\d{1,3})*)?(?:ss|s)?(?:\s*p)?)$/iu,
-  );
+  const match = cleanReference.match(BIBLE_REFERENCE_PATTERN);
 
   if (!match?.groups) return CATHOLIC_BIBLE_FALLBACK_URL;
 
@@ -279,5 +427,5 @@ export function catholicBibleUrl(reference: string) {
 
   if (!slug || !firstVerse) return CATHOLIC_BIBLE_FALLBACK_URL;
 
-  return `${CATHOLIC_BIBLE_BASE_URL}/${slug}/${match.groups.chapter}/${firstVerse}/`;
+  return `${CATHOLIC_BIBLE_BASE_URL}/${backupReaderSlug(slug)}/${match.groups.chapter}#v${firstVerse}`;
 }

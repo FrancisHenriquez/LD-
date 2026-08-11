@@ -3,15 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildJerusalemBibleLookup,
   JERUSALEM_BIBLE_TRANSLATION_NAME,
+  type JerusalemBibleProviderId,
 } from "../../catholic-bible";
-import { extractJerusalemBiblePassage } from "../../jerusalem-bible";
 import {
   fetchJerusalemBibleChapter as fetchChapterFromReader,
+  fetchJerusalemBiblePassage,
 } from "../../jerusalem-bible-reader";
+import { readBibleEdgeCache, writeBibleEdgeCache } from "../../bible-edge-cache";
 
-const fetchJerusalemBibleChapter = unstable_cache(
-  fetchChapterFromReader,
-  ["jerusalem-bible-chapter"],
+const fetchProviderChapter = unstable_cache(
+  (providerId: JerusalemBibleProviderId, bookSlug: string, chapter: number) => (
+    fetchChapterFromReader(providerId, bookSlug, chapter)
+  ),
+  ["jerusalem-bible-provider-chapter-v3"],
   { revalidate: 60 * 60 * 24 * 30 },
 );
 
@@ -26,20 +30,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid reference" }, { status: 400 });
   }
 
+  const cachedResponse = await readBibleEdgeCache(
+    lookup.referenceLabel,
+    JERUSALEM_BIBLE_TRANSLATION_NAME,
+    undefined,
+    request.nextUrl.origin,
+  );
+  if (cachedResponse) return cachedResponse;
+
   try {
-    const markdown = await fetchJerusalemBibleChapter(lookup.readerUrl);
-    const text = extractJerusalemBiblePassage(
-      markdown,
+    const { providerId, text } = await fetchJerusalemBiblePassage(
+      lookup.bookSlug,
+      lookup.chapter,
       lookup.startVerse,
       lookup.endVerse,
-      lookup.chapter,
+      fetchProviderChapter,
+      lookup.verseRanges,
     );
 
-    if (!text) {
-      return NextResponse.json({ error: "Bible passage not found" }, { status: 502 });
-    }
-
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         referenceLabel: lookup.referenceLabel,
         translationName: JERUSALEM_BIBLE_TRANSLATION_NAME,
@@ -47,11 +56,35 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          "Cache-Control": "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800",
+          "Cache-Control": "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=2592000, stale-if-error=31536000",
+          "X-Bible-Cache": "MISS",
+          "X-Bible-Provider": providerId,
         },
       },
     );
-  } catch {
-    return NextResponse.json({ error: "Unable to fetch Bible text" }, { status: 502 });
+
+    await writeBibleEdgeCache(
+      lookup.referenceLabel,
+      response,
+      undefined,
+      request.nextUrl.origin,
+    );
+    return response;
+  } catch (error) {
+    console.error("Bible passage providers failed", {
+      reference: lookup.referenceLabel,
+      error,
+    });
   }
+
+  return NextResponse.json(
+    { error: "Unable to fetch Bible text" },
+    {
+      status: 502,
+      headers: {
+        "Cache-Control": "no-store",
+        "Retry-After": "30",
+      },
+    },
+  );
 }

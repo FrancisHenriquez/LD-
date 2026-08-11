@@ -152,7 +152,6 @@ function renderReferences(
         }}
         onFocus={() => prefetchScripture(token.label)}
         onPointerDown={() => prefetchScripture(token.label)}
-        onPointerEnter={() => prefetchScripture(token.label)}
         aria-label={`Consultar la referencia bíblica ${token.label}`}
       >
         {token.value}
@@ -189,6 +188,7 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
   const [scripture, setScripture] = useState<Scripture | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,7 +226,7 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
     return () => {
       cancelled = true;
     };
-  }, [reference.label]);
+  }, [reference.label, retryKey]);
 
   return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -237,9 +237,14 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
         Abrir en La Biblia de Jerusalén (católica) ↗
       </a>
       <p className="modal-note">Enlace católico en español · Referencia detectada en el PDF proporcionado.</p>
-      <div className="modal-scripture">
+      <div className="modal-scripture" aria-live="polite">
         {loading && <p className="modal-note">Cargando el texto bíblico…</p>}
-        {errorMessage && <p className="modal-note">{errorMessage}</p>}
+        {errorMessage && <>
+          <p className="modal-note">{errorMessage}</p>
+          <button className="modal-retry" type="button" onClick={() => setRetryKey((value) => value + 1)}>
+            Reintentar
+          </button>
+        </>}
         {scripture && <>
           <p className="modal-note">{scripture.referenceLabel} · {scripture.translationName}</p>
           {scripture.text.split("\n\n").map((paragraph, index) => (
