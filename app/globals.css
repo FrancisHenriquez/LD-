@@ -60,6 +60,8 @@ footer p { font:14px/1.7 Arial,sans-serif; }
 .reference-link { display:inline-block; padding:12px 16px; border:1px solid var(--emerald); color:var(--emerald); font-size:13px; font-weight:700; text-decoration:none; transition:background .2s,color .2s; }
 .reference-link:hover { background:var(--emerald); color:var(--paper); }
 .modal-note { margin:28px 0 0; padding-top:18px; border-top:1px solid var(--line); font-size:11px; text-transform:uppercase; letter-spacing:.1em; }
+.modal-retry { margin-top:14px; padding:10px 15px; border:1px solid var(--emerald); background:transparent; color:var(--emerald); cursor:pointer; font:700 12px Arial,sans-serif; text-transform:uppercase; letter-spacing:.08em; transition:background .2s,color .2s; }
+.modal-retry:hover,.modal-retry:focus-visible { background:var(--emerald); color:var(--paper); }
 @media (max-width:760px) {
   .site-header { padding:34px 16px 26px; }
   .brand-monogram { width:112px; height:112px; margin-bottom:14px; }

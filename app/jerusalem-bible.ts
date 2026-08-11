@@ -1,3 +1,59 @@
+export type JerusalemBibleChapter = Record<string, string>;
+
+const htmlEntities: Record<string, string> = {
+  amp: "&",
+  apos: "'",
+  quot: '"',
+  lt: "<",
+  gt: ">",
+  nbsp: " ",
+  aacute: "á",
+  eacute: "é",
+  iacute: "í",
+  oacute: "ó",
+  uacute: "ú",
+  ntilde: "ñ",
+  Aacute: "Á",
+  Eacute: "É",
+  Iacute: "Í",
+  Oacute: "Ó",
+  Uacute: "Ú",
+  Ntilde: "Ñ",
+  laquo: "«",
+  raquo: "»",
+  ldquo: "“",
+  rdquo: "”",
+  lsquo: "‘",
+  rsquo: "’",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+};
+
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/giu, (entity, code: string) => {
+    if (code.startsWith("#x") || code.startsWith("#X")) {
+      return String.fromCodePoint(Number.parseInt(code.slice(2), 16));
+    }
+
+    if (code.startsWith("#")) {
+      return String.fromCodePoint(Number.parseInt(code.slice(1), 10));
+    }
+
+    return htmlEntities[code] ?? htmlEntities[code.toLowerCase()] ?? entity;
+  });
+}
+
+function plainTextFromHtml(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<br\s*\/?\s*>/giu, " ")
+      .replace(/<[^>]+>/gu, " "),
+  )
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
 function plainTextFromMarkdown(value: string) {
   return value
     .replace(/^>\s?/gmu, "")
@@ -9,12 +65,82 @@ function plainTextFromMarkdown(value: string) {
     .trim();
 }
 
-export function extractJerusalemBiblePassage(
+export function isBibleChallengePage(value: string) {
+  return /(?:just a moment|verifying you are human|captcha|cf-chl-|challenge-platform)/iu.test(value);
+}
+
+function reportsExpectedChapter(html: string, expectedChapter: number) {
+  const headingHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/iu)?.[1]
+    ?? html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1];
+  if (!headingHtml) return false;
+
+  const numbers = plainTextFromHtml(headingHtml).match(/\d{1,3}/gu);
+  return Number(numbers?.at(-1)) === expectedChapter;
+}
+
+function addVerse(
+  chapter: JerusalemBibleChapter,
+  verseNumber: number,
+  verseText: string,
+  previousVerse: number,
+) {
+  if (!Number.isInteger(verseNumber) || verseNumber <= previousVerse || !verseText) {
+    return false;
+  }
+
+  chapter[String(verseNumber)] = verseText;
+  return true;
+}
+
+export function parseCatholicBibleNetChapter(html: string, expectedChapter: number) {
+  if (isBibleChallengePage(html) || !reportsExpectedChapter(html, expectedChapter)) {
+    return null;
+  }
+
+  const section = html.match(
+    /<section\b[^>]*class=["'][^"']*\bprose\b[^"']*["'][^>]*>([\s\S]*?)<\/section>/iu,
+  )?.[1];
+  if (!section) return null;
+
+  const chapter: JerusalemBibleChapter = {};
+  const versePattern = /<p\b[^>]*>\s*<sup\b[^>]*>\s*(\d{1,3})\s*<\/sup>([\s\S]*?)<\/p>/giu;
+  let previousVerse = 0;
+
+  for (const match of section.matchAll(versePattern)) {
+    const verseNumber = Number(match[1]);
+    const verseText = plainTextFromHtml(match[2]);
+    if (!addVerse(chapter, verseNumber, verseText, previousVerse)) return null;
+    previousVerse = verseNumber;
+  }
+
+  return previousVerse > 0 ? chapter : null;
+}
+
+export function parseAlpichelChapter(html: string, expectedChapter: number) {
+  if (isBibleChallengePage(html) || !reportsExpectedChapter(html, expectedChapter)) {
+    return null;
+  }
+
+  const chapter: JerusalemBibleChapter = {};
+  const versePattern = /<div\b(?=[^>]*class=["'][^"']*\bchapter-verse\b[^"']*["'])(?=[^>]*id=["']v(\d{1,3})["'])[^>]*>[\s\S]*?<sup\b[^>]*>\s*\d{1,3}\s*<\/sup>[\s\S]*?<span\b[^>]*>([\s\S]*?)<\/span>[\s\S]*?<\/button>\s*<\/div>/giu;
+  let previousVerse = 0;
+
+  for (const match of html.matchAll(versePattern)) {
+    const verseNumber = Number(match[1]);
+    const verseText = plainTextFromHtml(match[2]);
+    if (!addVerse(chapter, verseNumber, verseText, previousVerse)) return null;
+    previousVerse = verseNumber;
+  }
+
+  return previousVerse > 0 ? chapter : null;
+}
+
+export function parseJerusalemBibleMarkdownChapter(
   markdown: string,
-  startVerse: number,
-  endVerse: number,
   expectedChapter: number,
 ) {
+  if (isBibleChallengePage(markdown)) return null;
+
   const reportedChapterMatch = markdown.match(
     /^(?:Title:\s*|#\s+)[^\r\n,]+,\s*(\d{1,3})(?:\s|$)/mu,
   );
@@ -30,17 +156,49 @@ export function extractJerusalemBiblePassage(
     ? contentFromFirstVerse
     : contentFromFirstVerse.slice(0, navigationIndex);
   const markers = [...chapterContent.matchAll(verseMarker)];
+  const chapter: JerusalemBibleChapter = {};
+  let previousVerse = 0;
 
-  const verses = markers.flatMap((marker, index) => {
+  for (const [index, marker] of markers.entries()) {
     const verseNumber = Number(marker[1]);
-    if (verseNumber < startVerse || verseNumber > endVerse) return [];
-
     const textStart = (marker.index ?? 0) + marker[0].length;
     const textEnd = markers[index + 1]?.index ?? chapterContent.length;
-    const text = plainTextFromMarkdown(chapterContent.slice(textStart, textEnd));
+    const verseText = plainTextFromMarkdown(chapterContent.slice(textStart, textEnd));
 
-    return text ? [`${verseNumber}. ${text}`] : [];
-  });
+    if (!addVerse(chapter, verseNumber, verseText, previousVerse)) return null;
+    previousVerse = verseNumber;
+  }
 
-  return verses.length > 0 ? verses.join("\n\n") : null;
+  return previousVerse > 0 ? chapter : null;
+}
+
+export function extractPassageFromChapter(
+  chapter: JerusalemBibleChapter,
+  startVerse: number,
+  endVerse: number,
+) {
+  const availableVerses = Object.keys(chapter).map(Number).filter(Number.isInteger);
+  const lastVerse = Math.max(0, ...availableVerses);
+  if (startVerse < 1 || endVerse < startVerse || startVerse > lastVerse) return null;
+
+  const effectiveEnd = Math.min(endVerse, lastVerse);
+  const verses: string[] = [];
+
+  for (let verseNumber = startVerse; verseNumber <= effectiveEnd; verseNumber += 1) {
+    const text = chapter[String(verseNumber)]?.trim();
+    if (!text) return null;
+    verses.push(`${verseNumber}. ${text}`);
+  }
+
+  return verses.join("\n\n");
+}
+
+export function extractJerusalemBiblePassage(
+  markdown: string,
+  startVerse: number,
+  endVerse: number,
+  expectedChapter: number,
+) {
+  const chapter = parseJerusalemBibleMarkdownChapter(markdown, expectedChapter);
+  return chapter ? extractPassageFromChapter(chapter, startVerse, endVerse) : null;
 }

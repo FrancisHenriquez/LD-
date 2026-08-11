@@ -30,12 +30,14 @@ function trimScriptureCache() {
 }
 
 export function loadScripture(reference: string): Promise<Scripture> {
-  const cacheKey = reference.trim();
-  const lookupReference = buildScriptureLookupReference(cacheKey);
+  const requestedReference = reference.trim();
+  const lookupReference = buildScriptureLookupReference(requestedReference);
 
   if (!lookupReference) {
     return Promise.reject(new Error("Invalid Bible reference"));
   }
+
+  const cacheKey = lookupReference;
 
   const cached = scriptureCache.get(cacheKey);
   if (cached) {
@@ -46,10 +48,14 @@ export function loadScripture(reference: string): Promise<Scripture> {
 
   const entry: ScriptureCacheEntry = {
     settled: false,
-    promise: fetch(`/api/bible?reference=${encodeURIComponent(cacheKey)}`, {
+    promise: fetch(`/api/bible?reference=${encodeURIComponent(requestedReference)}`, {
       cache: "force-cache",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
     }).then(async (response) => {
-      if (!response.ok) throw new Error("Bible passage not found");
+      if (!response.ok) {
+        throw new Error(`Bible passage request failed (${response.status})`);
+      }
 
       const data = await response.json() as Partial<Scripture>;
       const text = data.text?.trim();

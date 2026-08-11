@@ -1,46 +1,144 @@
+import {
+  buildJerusalemBibleChapterSources,
+  type JerusalemBibleProviderId,
+  type JerusalemBibleVerseRange,
+} from "./catholic-bible.ts";
+import {
+  extractPassageFromChapter,
+  isBibleChallengePage,
+  parseAlpichelChapter,
+  parseCatholicBibleNetChapter,
+  parseJerusalemBibleMarkdownChapter,
+  type JerusalemBibleChapter,
+} from "./jerusalem-bible.ts";
+
 const JINA_CACHE_TOLERANCE_SECONDS = 60 * 60 * 24 * 30;
+const PROVIDER_TIMEOUT_MS = 8_000;
+
+export const CATHOLIC_BIBLE_HTML_HEADERS = {
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "es,en;q=0.7",
+  "User-Agent": "Mozilla/5.0 (compatible; LD-Scripture/1.0)",
+} as const;
 
 export const JERUSALEM_BIBLE_READER_HEADERS = {
   Accept: "text/plain; charset=utf-8",
   "X-Cache-Tolerance": `${JINA_CACHE_TOLERANCE_SECONDS}`,
-  "X-Engine": "curl",
-  "X-Respond-Timing": "visible-content",
-  "X-Respond-With": "markdown",
-  "X-Retain-Images": "none",
-  "X-Retain-Links": "none",
-  "X-Target-Selector": "article.bibleChapter",
+  "X-Return-Format": "markdown",
 } as const;
 
 type Fetcher = typeof fetch;
 
-const chapterRequests = new Map<string, Promise<string>>();
+const chapterRequests = new Map<string, Promise<JerusalemBibleChapter>>();
+
+type ChapterFetcher = (
+  providerId: JerusalemBibleProviderId,
+  bookSlug: string,
+  chapter: number,
+) => Promise<JerusalemBibleChapter>;
+
+function parserForProvider(providerId: JerusalemBibleProviderId) {
+  switch (providerId) {
+    case "bibliacatolica-net":
+      return parseCatholicBibleNetChapter;
+    case "alpichel":
+      return parseAlpichelChapter;
+    case "legacy-jina":
+      return parseJerusalemBibleMarkdownChapter;
+  }
+}
 
 export function fetchJerusalemBibleChapter(
-  readerUrl: string,
+  providerId: JerusalemBibleProviderId,
+  bookSlug: string,
+  chapter: number,
   fetcher: Fetcher = fetch,
 ) {
-  const pending = chapterRequests.get(readerUrl);
+  const source = buildJerusalemBibleChapterSources(bookSlug, chapter)
+    .find(({ id }) => id === providerId);
+  if (!source) {
+    return Promise.reject(new Error(`Unknown Bible provider: ${providerId}`));
+  }
+
+  const pending = chapterRequests.get(source.url);
   if (pending) return pending;
 
-  const request = fetcher(readerUrl, {
-    headers: JERUSALEM_BIBLE_READER_HEADERS,
-    signal: AbortSignal.timeout(25_000),
+  const request = fetcher(source.url, {
+    headers: providerId === "legacy-jina"
+      ? JERUSALEM_BIBLE_READER_HEADERS
+      : CATHOLIC_BIBLE_HTML_HEADERS,
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   }).then(async (response) => {
     if (!response.ok) {
-      throw new Error(`Unable to fetch Bible chapter (${response.status})`);
+      throw new Error(`${providerId} returned HTTP ${response.status}`);
     }
 
-    return response.text();
+    const body = await response.text();
+    const parsedChapter = parserForProvider(providerId)(body, chapter);
+    if (!parsedChapter) {
+      const reason = isBibleChallengePage(body) ? "challenge page" : "invalid chapter";
+      throw new Error(`${providerId} returned ${reason}`);
+    }
+
+    return parsedChapter;
   });
 
-  chapterRequests.set(readerUrl, request);
+  chapterRequests.set(source.url, request);
   void request.finally(() => {
-    if (chapterRequests.get(readerUrl) === request) {
-      chapterRequests.delete(readerUrl);
+    if (chapterRequests.get(source.url) === request) {
+      chapterRequests.delete(source.url);
     }
   }).catch(() => {
     // The original promise carries the error to its caller.
   });
 
   return request;
+}
+
+export async function fetchJerusalemBiblePassage(
+  bookSlug: string,
+  chapter: number,
+  startVerse: number,
+  endVerse: number,
+  chapterFetcher: ChapterFetcher = fetchJerusalemBibleChapter,
+  verseRanges: readonly JerusalemBibleVerseRange[] = [{ startVerse, endVerse }],
+) {
+  const providerErrors: Error[] = [];
+
+  for (const { id: providerId } of buildJerusalemBibleChapterSources(bookSlug, chapter)) {
+    try {
+      const parsedChapter = await chapterFetcher(providerId, bookSlug, chapter);
+      const passages: string[] = [];
+
+      for (const range of verseRanges) {
+        const passage = extractPassageFromChapter(
+          parsedChapter,
+          range.startVerse,
+          range.endVerse,
+        );
+
+        if (!passage) {
+          throw new Error("requested verses are unavailable");
+        }
+
+        passages.push(passage);
+      }
+
+      const text = passages.join("\n\n");
+
+      if (!text) {
+        throw new Error("requested verses are unavailable");
+      }
+
+      return { providerId, text };
+    } catch (error) {
+      providerErrors.push(
+        new Error(
+          `${providerId}: ${error instanceof Error ? error.message : "unknown error"}`,
+        ),
+      );
+    }
+  }
+
+  throw new AggregateError(providerErrors, "All Bible passage providers failed");
 }
