@@ -2,6 +2,10 @@ import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 import * as schema from "./schema";
 
+/**
+ * Crea el cliente de Drizzle conectado al binding D1 del Worker y falla con una
+ * instrucción clara cuando la base de datos no fue configurada.
+ */
 export function getDb() {
   if (!env.DB) {
     throw new Error(

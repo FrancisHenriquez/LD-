@@ -54,6 +54,9 @@ function plainTextFromHtml(value: string) {
     .trim();
 }
 
+/**
+ * Elimina enlaces, imágenes y marcas de formato para obtener texto legible.
+ */
 function plainTextFromMarkdown(value: string) {
   return value
     .replace(/^>\s?/gmu, "")
@@ -135,6 +138,10 @@ export function parseAlpichelChapter(html: string, expectedChapter: number) {
   return previousVerse > 0 ? chapter : null;
 }
 
+/**
+ * Convierte el Markdown del lector legado en un capítulo validado.
+ * Devuelve `null` cuando el contenido no corresponde al capítulo solicitado.
+ */
 export function parseJerusalemBibleMarkdownChapter(
   markdown: string,
   expectedChapter: number,
@@ -159,6 +166,7 @@ export function parseJerusalemBibleMarkdownChapter(
   const chapter: JerusalemBibleChapter = {};
   let previousVerse = 0;
 
+  // Limpia el texto que sigue a cada marcador y conserva su número de versículo.
   for (const [index, marker] of markers.entries()) {
     const verseNumber = Number(marker[1]);
     const textStart = (marker.index ?? 0) + marker[0].length;
@@ -193,6 +201,10 @@ export function extractPassageFromChapter(
   return verses.join("\n\n");
 }
 
+/**
+ * Extrae del Markdown los versículos solicitados después de validar el capítulo.
+ * Devuelve el pasaje numerado o `null` si el contenido no corresponde.
+ */
 export function extractJerusalemBiblePassage(
   markdown: string,
   startVerse: number,

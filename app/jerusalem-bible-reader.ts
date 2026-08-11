@@ -48,6 +48,11 @@ function parserForProvider(providerId: JerusalemBibleProviderId) {
   }
 }
 
+/**
+ * Descarga, parsea y valida un capítulo desde el proveedor solicitado, y
+ * reutiliza solicitudes simultáneas a la misma URL. El `fetcher` inyectable
+ * permite probar la carga sin usar la red.
+ */
 export function fetchJerusalemBibleChapter(
   providerId: JerusalemBibleProviderId,
   bookSlug: string,
@@ -63,6 +68,7 @@ export function fetchJerusalemBibleChapter(
   const pending = chapterRequests.get(source.url);
   if (pending) return pending;
 
+  // Convierte una respuesta HTTP correcta en un capítulo ya validado.
   const request = fetcher(source.url, {
     headers: providerId === "legacy-jina"
       ? JERUSALEM_BIBLE_READER_HEADERS
@@ -84,12 +90,13 @@ export function fetchJerusalemBibleChapter(
   });
 
   chapterRequests.set(source.url, request);
+  // Libera la solicitud compartida cuando termina, sin borrar una más reciente.
   void request.finally(() => {
     if (chapterRequests.get(source.url) === request) {
       chapterRequests.delete(source.url);
     }
   }).catch(() => {
-    // The original promise carries the error to its caller.
+    // La promesa original comunica el error a quien hizo la llamada.
   });
 
   return request;

@@ -6,6 +6,7 @@ const developmentPreviewMeta =
 
 test("renders development preview metadata", async () => {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  // Evita reutilizar el módulo entre ejecuciones y carga una instancia nueva del Worker.
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
@@ -15,6 +16,7 @@ test("renders development preview metadata", async () => {
     }),
     {
       ASSETS: {
+        // Fuerza el renderizado de la aplicación al simular que no hay un recurso estático.
         fetch: async () => new Response("Not found", { status: 404 }),
       },
     },

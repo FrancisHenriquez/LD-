@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { tokenizeBiblicalReferences } from "../app/reference-parser.ts";
 
+// Reduce la salida del tokenizador a las citas que interesan en estas pruebas.
 const citations = (text) =>
   tokenizeBiblicalReferences(text).filter((token) => token.type === "citation");
 

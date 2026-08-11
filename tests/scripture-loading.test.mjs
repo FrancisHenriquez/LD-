@@ -35,6 +35,7 @@ test('normaliza, deduplica y conserva una cita cargada en el navegador', async (
   let requestedUrl;
   let requestedOptions;
   let finishRequest;
+  // Mantiene la petición pendiente para comprobar que las llamadas comparten la promesa.
   globalThis.fetch = (url, options) => {
     requests += 1;
     requestedUrl = url;
@@ -77,6 +78,7 @@ test('no conserva los errores de carga en la caché del navegador', async (conte
   });
 
   let requests = 0;
+  // Simula un fallo transitorio seguido de una respuesta válida para probar el reintento.
   globalThis.fetch = async () => {
     requests += 1;
     if (requests === 1) return new Response(null, { status: 502 });
@@ -184,6 +186,7 @@ test('coalesce descargas simultáneas y entrega un capítulo ya validado', async
   let requestedUrl;
   let requestedOptions;
   let finishRequest;
+  // Permite resolver la descarga después de iniciar ambas llamadas.
   const fetcher = (url, options) => {
     requests += 1;
     requestedUrl = url;
@@ -214,6 +217,7 @@ test('coalesce descargas simultáneas y entrega un capítulo ya validado', async
 
 test('usa encabezados específicos para el lector legado', async () => {
   let capturedOptions;
+  // Captura las opciones sin acceder a la red para inspeccionar las cabeceras enviadas.
   const fetcher = async (_url, options) => {
     capturedOptions = options;
     return new Response('Title: Juan, 5\n\n**1.** Texto');

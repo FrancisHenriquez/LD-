@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   other: { "codex-preview": "development" },
 };
 
+/**
+ * Define la estructura HTML común para todas las páginas y declara el español
+ * como idioma principal del documento.
+ */
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="es"><body>{children}</body></html>;
 }

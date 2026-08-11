@@ -16,6 +16,11 @@ const SIGN_IN_PATH = "/signin-with-chatgpt";
 const SIGN_OUT_PATH = "/signout-with-chatgpt";
 const CALLBACK_PATH = "/callback";
 
+/**
+ * Lee de las cabeceras confiables la identidad autenticada por ChatGPT.
+ *
+ * @returns Los datos normalizados del usuario o `null` si no hay sesión.
+ */
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   const requestHeaders = await headers();
   const email = requestHeaders.get(USER_EMAIL_HEADER);
@@ -35,6 +40,12 @@ export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
   };
 }
 
+/**
+ * Exige una sesión de ChatGPT y redirige al inicio de sesión cuando no existe.
+ *
+ * @param returnTo Ruta interna a la que se regresará tras iniciar sesión.
+ * @returns El usuario autenticado cuando la sesión es válida.
+ */
 export async function requireChatGPTUser(
   returnTo: string,
 ): Promise<ChatGPTUser> {
@@ -44,16 +55,22 @@ export async function requireChatGPTUser(
   redirect(chatGPTSignInPath(returnTo));
 }
 
+/** Construye una URL de inicio de sesión con una ruta de retorno interna segura. */
 export function chatGPTSignInPath(returnTo: string): string {
   const safeReturnTo = safeRelativeReturnPath(returnTo);
   return `${SIGN_IN_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
 }
 
+/** Construye una URL de cierre de sesión con una ruta de retorno interna segura. */
 export function chatGPTSignOutPath(returnTo = "/"): string {
   const safeReturnTo = safeRelativeReturnPath(returnTo);
   return `${SIGN_OUT_PATH}?return_to=${encodeURIComponent(safeReturnTo)}`;
 }
 
+/**
+ * Acepta únicamente rutas relativas del sitio y sustituye destinos externos o
+ * rutas reservadas de autenticación por la página principal.
+ */
 function safeRelativeReturnPath(value: string): string {
   if (!value.startsWith("/") || value.startsWith("//")) return "/";
 
@@ -69,6 +86,7 @@ function safeRelativeReturnPath(value: string): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+/** Indica si una ruta pertenece al flujo interno de autenticación. */
 function isReservedAuthPath(pathname: string): boolean {
   return (
     pathname === SIGN_IN_PATH ||
@@ -77,6 +95,7 @@ function isReservedAuthPath(pathname: string): boolean {
   );
 }
 
+/** Decodifica un valor URI sin propagar errores causados por secuencias inválidas. */
 function safeDecodeURIComponent(value: string): string | null {
   try {
     return decodeURIComponent(value);
