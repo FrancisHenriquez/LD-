@@ -33,6 +33,8 @@ export async function GET(request: NextRequest) {
   const cachedResponse = await readBibleEdgeCache(
     lookup.referenceLabel,
     JERUSALEM_BIBLE_TRANSLATION_NAME,
+    undefined,
+    request.nextUrl.origin,
   );
   if (cachedResponse) return cachedResponse;
 
@@ -61,7 +63,12 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    await writeBibleEdgeCache(lookup.referenceLabel, response);
+    await writeBibleEdgeCache(
+      lookup.referenceLabel,
+      response,
+      undefined,
+      request.nextUrl.origin,
+    );
     return response;
   } catch (error) {
     console.error("Bible passage providers failed", {

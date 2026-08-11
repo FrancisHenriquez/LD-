@@ -231,9 +231,12 @@ test('usa encabezados específicos para el lector legado', async () => {
 test('sirve una copia validada de la caché de borde y tolera sus fallos', async () => {
   let matches = 0;
   let puts = 0;
+  let matchedUrl;
+  let storedResponse;
   const cache = {
-    async match() {
+    async match(request) {
       matches += 1;
+      matchedUrl = request.url;
       return new Response(JSON.stringify({
         referenceLabel: 'Juan 3:16',
         translationName: 'Biblia de Jerusalén',
@@ -245,15 +248,17 @@ test('sirve una copia validada de la caché de borde y tolera sus fallos', async
         }
       });
     },
-    async put() {
+    async put(_request, response) {
       puts += 1;
+      storedResponse = response;
     }
   };
 
   const response = await readBibleEdgeCache(
     'Juan 3:16',
     'Biblia de Jerusalén',
-    cache
+    cache,
+    'https://vocabulario.example'
   );
 
   assert.ok(response);
@@ -261,9 +266,18 @@ test('sirve una copia validada de la caché de borde y tolera sus fallos', async
   assert.equal(response.headers.get('X-Bible-Cache'), 'HIT');
   assert.equal((await response.json()).text, '16. Porque tanto amó Dios al mundo.');
   assert.equal(matches, 1);
+  assert.match(matchedUrl, /^https:\/\/vocabulario\.example\/\.openai-cache\/bible\/v5\//u);
 
-  await writeBibleEdgeCache('Juan 3:16', new Response('ok'), cache);
+  await writeBibleEdgeCache(
+    'Juan 3:16',
+    new Response('ok', { headers: { 'Set-Cookie': 'private=true' } }),
+    cache,
+    'https://vocabulario.example'
+  );
   assert.equal(puts, 1);
+  assert.equal(storedResponse.headers.get('Cache-Control'), 'public, max-age=31536000');
+  assert.equal(storedResponse.headers.get('Set-Cookie'), null);
+  assert.equal(storedResponse.headers.get('X-Bible-Cache'), 'HIT');
 
   const brokenCache = {
     async match() { throw new Error('cache read failed'); },
