@@ -51,6 +51,14 @@ test("detecta los libros deuterocanónicos", () => {
   );
 });
 
+test("detecta las abreviaturas usadas en las introducciones", () => {
+  const result = citations("(Rm 1,21), (Éx 3,7-10) y Éx 3,7-10");
+  assert.deepEqual(
+    result.map((item) => item.label),
+    ["Rm 1,21", "Éx 3,7-10", "Éx 3,7-10"],
+  );
+});
+
 test("no convierte fechas ni numeración editorial", () => {
   assert.equal(citations("Xavier Léon-Dufour (1912-2007), edición 2001.").length, 0);
   assert.equal(citations("Véanse los apartados (1.2 y 3.4).").length, 0);
