@@ -106,6 +106,29 @@ test("no añade un rótulo cuando el artículo no contiene divisiones", () => {
   );
 });
 
+test("infiere una introducción antes del primer encabezado estructural", () => {
+  assert.deepEqual(
+    splitArticleSections([
+      "Texto introductorio",
+      "I EL PRIMER BLOQUE",
+      "Desarrollo del artículo",
+    ]),
+    [
+      {
+        title: "Introducción",
+        paragraphs: [{ text: "Texto introductorio", sourceIndex: 0 }],
+      },
+      {
+        title: null,
+        paragraphs: [
+          { text: "I EL PRIMER BLOQUE", sourceIndex: 1 },
+          { text: "Desarrollo del artículo", sourceIndex: 2 },
+        ],
+      },
+    ],
+  );
+});
+
 test("mantiene las divisiones editoriales de los artículos especiales", () => {
   const cases = {
     "Acción de gracias": ["Introducción", "Antiguo Testamento", "Nuevo Testamento"],
@@ -138,7 +161,7 @@ test("mantiene las divisiones editoriales de los artículos especiales", () => {
     Paciencia: ["Introducción", "Antiguo Testamento", "Nuevo Testamento"],
     Puerta: ["Introducción", "Antiguo Testamento", "Nuevo Testamento"],
     Tiempo: ["Introducción", "Antiguo Testamento", "Nuevo Testamento"],
-    Abraham: [null],
+    Abraham: ["Introducción", null],
   };
 
   for (const [name, expectedTitles] of Object.entries(cases)) {

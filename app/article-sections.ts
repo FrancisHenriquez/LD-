@@ -22,6 +22,7 @@ function sectionKind(marker: string): Exclude<SectionKind, null> {
 function isStructuralSectionStart(paragraph: ArticleParagraph) {
   const text = paragraph.text.trim();
   return /^(?:[IVXLCDM]+|\d+)\.\s/u.test(text) ||
+    /^[IVXLCDM]+\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+(?:\.|$)/u.test(text) ||
     /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s]+?\.\s/u.test(text);
 }
 
@@ -130,7 +131,10 @@ export function splitArticleSections(paragraphs: string[]): ArticleSection[] {
   const firstMarkedSection = sections.find(
     ({ kind }) => kind === "AT" || kind === "NT",
   );
-  return sections.map(({ kind, paragraphs: sectionParagraphs }) => ({
+  const articleSections: ArticleSection[] = sections.map(({
+    kind,
+    paragraphs: sectionParagraphs,
+  }) => ({
     title:
       kind === "INTRO"
         ? "Introducción"
@@ -143,4 +147,24 @@ export function splitArticleSections(paragraphs: string[]): ArticleSection[] {
               : null,
     paragraphs: sectionParagraphs,
   }));
+
+  if (articleSections.length === 1 && articleSections[0].title === null) {
+    const developmentStart = articleSections[0].paragraphs.findIndex(
+      isStructuralSectionStart,
+    );
+    if (developmentStart > 0) {
+      return [
+        {
+          title: "Introducción",
+          paragraphs: articleSections[0].paragraphs.slice(0, developmentStart),
+        },
+        {
+          title: null,
+          paragraphs: articleSections[0].paragraphs.slice(developmentStart),
+        },
+      ];
+    }
+  }
+
+  return articleSections;
 }

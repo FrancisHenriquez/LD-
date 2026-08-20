@@ -67,9 +67,6 @@ export default function Home() {
         <Nav onHome={() => setActiveTerm(null)} />
         <article className="reading-page">
           <button className="back" onClick={() => setActiveTerm(null)}>← Volver al vocabulario</button>
-          <p className="eyebrow">Vocabulario de teología bíblica</p>
-          <h2>{activeTerm}</h2>
-          <p className="article-meta">Texto extraído del PDF proporcionado · páginas {article.sourcePages[0]}–{article.sourcePages[1]}</p>
           <ArticleBody article={article} onOpenReference={setOpenRef} />
         </article>
         <Footer />
@@ -124,6 +121,10 @@ function ArticleBody({
 }) {
   const paragraphs = useMemo(() => article.text.split(/\n{2,}/).filter(Boolean), [article.text]);
   const sections = useMemo(() => splitArticleSections(paragraphs), [paragraphs]);
+  const hasTextIntroduction = sections[0]?.title === "Introducción";
+  const leadParagraphIndex = hasTextIntroduction
+    ? sections[0].paragraphs.findIndex(({ text }) => !isArticleHeading(text))
+    : -1;
   // Busca una sola cita inicial para adelantar su carga mientras se lee el artículo.
   const firstReference = useMemo(() => {
     for (const paragraph of paragraphs) {
@@ -138,41 +139,51 @@ function ArticleBody({
     if (firstReference) prefetchScripture(firstReference);
   }, [firstReference]);
 
-  return <div className="article-body">
-    {sections.map((section, sectionIndex) => {
-      const sectionTitleId = `article-section-${sectionIndex}`;
-      const startsDevelopment = sectionIndex > 0 &&
-        sections[sectionIndex - 1]?.title === "Introducción";
-      return <Fragment key={`${section.title ?? "article"}-${sectionIndex}`}>
-        {startsDevelopment && <div
-          className="article-development-divider"
-          role="separator"
-          aria-label="Comienzo del desarrollo del tema"
-        >
-          <span>Desarrollo del tema</span>
-          <span aria-hidden="true">✣</span>
-        </div>}
-        {section.title && <h3
-          className={`article-section-title${section.title === "Introducción" ? " article-section-title--intro" : ""}`}
-          id={sectionTitleId}
-        >{section.title}</h3>}
-        {section.paragraphs.map(({ text: paragraph, sourceIndex }, paragraphIndex) => {
-          const heading =
-            paragraph.length < 180 &&
-            (/^(?:[IVXLCDM]+\.|\d+\.)\s/u.test(paragraph) ||
-              (paragraph === paragraph.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/u.test(paragraph)));
-          if (heading) {
-            return <h3 key={`${sourceIndex}-${paragraphIndex}`}>{paragraph}</h3>;
-          }
-          const isLead = sectionIndex === 0 && paragraphIndex === 0 &&
-            (section.title === "Introducción" || section.title === null);
-          return <p className={isLead ? "lead" : undefined} key={`${sourceIndex}-${paragraphIndex}`}>
-            {renderReferences(paragraph, onOpenReference)}
-          </p>;
-        })}
-      </Fragment>;
-    })}
-  </div>;
+  return <>
+    <header className={`article-opening${hasTextIntroduction ? "" : " article-opening--implicit"}`}>
+      <p className="eyebrow">Vocabulario de teología bíblica</p>
+      <h2>{article.title}</h2>
+    </header>
+    <div className="article-body">
+      {sections.map((section, sectionIndex) => {
+        const sectionTitleId = `article-section-${sectionIndex}`;
+        const startsDevelopment =
+          (sectionIndex === 0 && section.title !== "Introducción") ||
+          (sectionIndex > 0 && sections[sectionIndex - 1]?.title === "Introducción");
+        return <Fragment key={`${section.title ?? "article"}-${sectionIndex}`}>
+          {startsDevelopment && <div
+            className="article-development-divider"
+            role="separator"
+            aria-label="Comienzo del desarrollo del tema"
+          >
+            <span>Desarrollo del tema</span>
+            <span aria-hidden="true">✣</span>
+          </div>}
+          {section.title && <h3
+            className={`article-section-title${section.title === "Introducción" ? " article-section-title--intro" : ""}`}
+            id={sectionTitleId}
+          >{section.title}</h3>}
+          {section.paragraphs.map(({ text: paragraph, sourceIndex }, paragraphIndex) => {
+            const heading = isArticleHeading(paragraph);
+            if (heading) {
+              return <h3 key={`${sourceIndex}-${paragraphIndex}`}>{paragraph}</h3>;
+            }
+            const isLead = sectionIndex === 0 && paragraphIndex === leadParagraphIndex;
+            return <p className={isLead ? "lead" : undefined} key={`${sourceIndex}-${paragraphIndex}`}>
+              {renderReferences(paragraph, onOpenReference)}
+            </p>;
+          })}
+        </Fragment>;
+      })}
+    </div>
+  </>;
+}
+
+/** Reconoce los encabezados editoriales que forman parte del texto fuente. */
+function isArticleHeading(paragraph: string) {
+  return paragraph.length < 180 &&
+    (/^(?:[IVXLCDM]+\.|\d+\.)\s/u.test(paragraph) ||
+      (paragraph === paragraph.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/u.test(paragraph)));
 }
 
 /**
