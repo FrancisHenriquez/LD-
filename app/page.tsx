@@ -36,6 +36,12 @@ export default function Home() {
   const [openRef, setOpenRef] = useState<OpenReference | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // Cada cambio entre el índice y un artículo representa una nueva vista.
+  // Restablece la posición de inmediato para no conservar el scroll anterior.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [activeTerm]);
+
   // Recalcula los términos visibles solo cuando cambia el texto de búsqueda.
   const filtered = useMemo(() => terms.filter((term) =>
     term.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
