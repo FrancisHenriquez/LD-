@@ -44,6 +44,15 @@ nav span { margin-left:auto; font-size:20px; }
 .reading-page .lead { font-size:25px; line-height:1.6; }
 .article-meta { margin:-35px 0 58px!important; padding-bottom:18px; border-bottom:1px solid var(--line); font:700 10px/1.4 Arial,sans-serif!important; letter-spacing:.11em; text-transform:uppercase; }
 .article-body { counter-reset:section; }
+.reading-page .article-section-title { margin:72px 0 34px; padding-bottom:14px; border-bottom:1px solid var(--emerald); font:700 12px/1.4 Arial,sans-serif; letter-spacing:.18em; text-transform:uppercase; }
+.article-body > .article-section-title:first-child { margin-top:0; }
+.article-body > h3 + .article-section-title { margin-top:24px; }
+.article-section-title + p,.article-section-title + h3 { margin-top:0; }
+.reading-page .article-section-title--intro + .lead { padding-left:24px; border-left:3px solid var(--emerald); }
+.article-development-divider { margin:68px 0 0; padding-top:20px; border-top:2px solid var(--emerald); display:flex; align-items:center; justify-content:space-between; gap:24px; }
+.article-development-divider span:first-child { font:400 24px/1.2 Georgia,serif; letter-spacing:-.01em; }
+.article-development-divider span:last-child { font-size:17px; }
+.article-development-divider + .article-section-title { margin-top:28px; }
 .article-body p { text-wrap:pretty; }
 .bib-ref, .inline-link { display:inline; border:0; border-bottom:1px solid currentColor; padding:1px 3px; background:rgba(6,78,59,.08); cursor:pointer; font:700 .68em Arial,sans-serif; vertical-align:.08em; text-decoration:none; border-radius:2px; }
 .bib-ref:hover { background:var(--emerald); color:var(--champagne); }
@@ -75,6 +84,9 @@ footer p { font:14px/1.7 Arial,sans-serif; }
   .term-card:not(:nth-child(3n+1)) { border-left:0; padding-left:4px; }
   .term-card:hover,.term-card:not(:nth-child(3n+1)):hover { padding-left:12px; }
   .search input { font-size:22px; }
+  .reading-page .article-section-title--intro + .lead { padding-left:18px; }
+  .article-development-divider { margin-top:56px; }
+  .article-development-divider span:first-child { font-size:22px; }
   footer { grid-template-columns:1fr; padding:55px 24px; }
   .copyright { text-align:left; }
   .modal { padding:48px 28px 34px; }

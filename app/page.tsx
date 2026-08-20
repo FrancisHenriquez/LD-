@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { splitArticleSections } from "./article-sections";
 import articlesData from "./data/articles.json";
 import {
   buildScriptureLookupReference,
@@ -122,6 +123,7 @@ function ArticleBody({
   onOpenReference: (reference: OpenReference) => void;
 }) {
   const paragraphs = useMemo(() => article.text.split(/\n{2,}/).filter(Boolean), [article.text]);
+  const sections = useMemo(() => splitArticleSections(paragraphs), [paragraphs]);
   // Busca una sola cita inicial para adelantar su carga mientras se lee el artículo.
   const firstReference = useMemo(() => {
     for (const paragraph of paragraphs) {
@@ -137,17 +139,38 @@ function ArticleBody({
   }, [firstReference]);
 
   return <div className="article-body">
-    {paragraphs.map((paragraph, index) => {
-      const heading =
-        paragraph.length < 180 &&
-        (/^(?:[IVXLCDM]+\.|\d+\.)\s/u.test(paragraph) ||
-          (paragraph === paragraph.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/u.test(paragraph)));
-      if (heading) {
-        return <h3 key={index}>{paragraph}</h3>;
-      }
-      return <p className={index === 0 ? "lead" : undefined} key={index}>
-        {renderReferences(paragraph, onOpenReference)}
-      </p>;
+    {sections.map((section, sectionIndex) => {
+      const sectionTitleId = `article-section-${sectionIndex}`;
+      const startsDevelopment = sectionIndex > 0 &&
+        sections[sectionIndex - 1]?.title === "Introducción";
+      return <Fragment key={`${section.title ?? "article"}-${sectionIndex}`}>
+        {startsDevelopment && <div
+          className="article-development-divider"
+          role="separator"
+          aria-label="Comienzo del desarrollo del tema"
+        >
+          <span>Desarrollo del tema</span>
+          <span aria-hidden="true">✣</span>
+        </div>}
+        {section.title && <h3
+          className={`article-section-title${section.title === "Introducción" ? " article-section-title--intro" : ""}`}
+          id={sectionTitleId}
+        >{section.title}</h3>}
+        {section.paragraphs.map(({ text: paragraph, sourceIndex }, paragraphIndex) => {
+          const heading =
+            paragraph.length < 180 &&
+            (/^(?:[IVXLCDM]+\.|\d+\.)\s/u.test(paragraph) ||
+              (paragraph === paragraph.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/u.test(paragraph)));
+          if (heading) {
+            return <h3 key={`${sourceIndex}-${paragraphIndex}`}>{paragraph}</h3>;
+          }
+          const isLead = sectionIndex === 0 && paragraphIndex === 0 &&
+            (section.title === "Introducción" || section.title === null);
+          return <p className={isLead ? "lead" : undefined} key={`${sourceIndex}-${paragraphIndex}`}>
+            {renderReferences(paragraph, onOpenReference)}
+          </p>;
+        })}
+      </Fragment>;
     })}
   </div>;
 }
