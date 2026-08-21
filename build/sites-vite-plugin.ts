@@ -2,6 +2,7 @@ import { access, cp, mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
+/** Comprueba si una ruta existe sin ocultar errores distintos de `ENOENT`. */
 async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
@@ -14,7 +15,10 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-// Packages Sites metadata and migrations after Vite finishes compiling.
+/**
+ * Empaqueta en `dist/.openai` la configuración de Sites y las migraciones que
+ * existan una vez que Vite termina de compilar.
+ */
 export function sites(): Plugin {
   let root = process.cwd();
 

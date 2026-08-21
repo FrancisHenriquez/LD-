@@ -11,6 +11,8 @@ import {
 } from "../../jerusalem-bible-reader";
 import { readBibleEdgeCache, writeBibleEdgeCache } from "../../bible-edge-cache";
 
+// Conserva cada capítulo completo durante 30 días para reutilizar una sola
+// descarga entre consultas de distintos rangos de versículos.
 const fetchProviderChapter = unstable_cache(
   (providerId: JerusalemBibleProviderId, bookSlug: string, chapter: number) => (
     fetchChapterFromReader(providerId, bookSlug, chapter)
@@ -63,6 +65,8 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
+          // El navegador conserva un día; las cachés compartidas, un año, y
+          // pueden servir contenido anterior mientras revalidan o ante fallos.
           "Cache-Control": "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=2592000, stale-if-error=31536000",
           "X-Bible-Cache": "MISS",
           "X-Bible-Provider": providerId,

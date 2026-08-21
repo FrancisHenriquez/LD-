@@ -1,4 +1,3 @@
-// Intentionally empty by default.
-// Add Drizzle tables here when the site actually needs a database.
-// See examples/d1/db/schema.ts for an opt-in example.
+// Este esquema permanece vacío hasta que el sitio necesite una base de datos.
+// `examples/d1/db/schema.ts` contiene un ejemplo opcional de tablas Drizzle.
 export {};

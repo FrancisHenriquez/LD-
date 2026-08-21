@@ -15,12 +15,16 @@ import {
 const JINA_CACHE_TOLERANCE_SECONDS = 60 * 60 * 24 * 30;
 const PROVIDER_TIMEOUT_MS = 8_000;
 
+// Cabeceras de navegador necesarias para que los proveedores HTML entreguen el
+// capítulo en español en vez de una representación destinada a bots.
 export const CATHOLIC_BIBLE_HTML_HEADERS = {
   Accept: "text/html,application/xhtml+xml",
   "Accept-Language": "es,en;q=0.7",
   "User-Agent": "Mozilla/5.0 (compatible; LD-Scripture/1.0)",
 } as const;
 
+// Contrato del lector Jina: solicita Markdown y acepta su copia almacenada
+// durante un máximo de 30 días para reducir accesos al proveedor legado.
 export const JERUSALEM_BIBLE_READER_HEADERS = {
   Accept: "text/plain; charset=utf-8",
   "X-Cache-Tolerance": `${JINA_CACHE_TOLERANCE_SECONDS}`,
@@ -29,6 +33,8 @@ export const JERUSALEM_BIBLE_READER_HEADERS = {
 
 type Fetcher = typeof fetch;
 
+// Solo conserva promesas en curso: comparte descargas simultáneas, pero permite
+// que consultas posteriores aprovechen las capas de caché HTTP y de Next.
 const chapterRequests = new Map<string, Promise<JerusalemBibleChapter>>();
 
 type ChapterFetcher = (
@@ -102,6 +108,12 @@ export function fetchJerusalemBibleChapter(
   return request;
 }
 
+/**
+ * Prueba los proveedores en el orden configurado y acepta el primero capaz de
+ * entregar todos los rangos completos. `startVerse` y `endVerse` forman el
+ * rango predeterminado por compatibilidad; `verseRanges` conserva las citas
+ * discontinuas. Si ningún proveedor sirve, reúne sus fallos en AggregateError.
+ */
 export async function fetchJerusalemBiblePassage(
   bookSlug: string,
   chapter: number,

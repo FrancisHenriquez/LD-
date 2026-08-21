@@ -1,9 +1,15 @@
+// La versión forma parte de cada clave. Debe incrementarse si cambia el formato
+// de la respuesta para dejar inaccesibles las entradas antiguas.
 const BIBLE_EDGE_CACHE_VERSION = "v6";
 const BIBLE_EDGE_CACHE_NAME = "bible-passages-v6";
 
 type BibleEdgeCache = Pick<Cache, "match" | "put">;
 type WorkerCacheStorage = CacheStorage & { default?: Cache };
 
+/**
+ * Prefiere la caché predeterminada del Worker y recurre a una caché con nombre.
+ * Devuelve `null` cuando la plataforma no implementa Cache API o no está lista.
+ */
 async function getDefaultBibleEdgeCache(): Promise<BibleEdgeCache | null> {
   const cacheStorage = (globalThis as typeof globalThis & {
     caches?: WorkerCacheStorage;
@@ -19,6 +25,10 @@ async function getDefaultBibleEdgeCache(): Promise<BibleEdgeCache | null> {
   }
 }
 
+/**
+ * Crea una URL sintética y versionada para la referencia. La traducción se
+ * valida dentro de la respuesta, en lugar de duplicarse en la clave.
+ */
 function buildBibleEdgeCacheKey(referenceLabel: string, origin: string) {
   const cacheUrl = new URL(origin);
   cacheUrl.pathname = `/.openai-cache/bible/${BIBLE_EDGE_CACHE_VERSION}/${encodeURIComponent(referenceLabel)}`;
@@ -29,6 +39,11 @@ function buildBibleEdgeCacheKey(referenceLabel: string, origin: string) {
   );
 }
 
+/**
+ * Recupera y valida un pasaje almacenado en el borde. Una caché `undefined` se
+ * detecta desde el runtime y `null` la deshabilita explícitamente; cualquier
+ * fallo o contenido incompatible se trata como una ausencia de caché.
+ */
 export async function readBibleEdgeCache(
   referenceLabel: string,
   translationName: string,
@@ -60,6 +75,11 @@ export async function readBibleEdgeCache(
   }
 }
 
+/**
+ * Guarda una copia pública y versionada de una respuesta válida, eliminando
+ * cookies antes de persistirla. La escritura es best-effort y nunca convierte
+ * una respuesta bíblica correcta en un error de la API.
+ */
 export async function writeBibleEdgeCache(
   referenceLabel: string,
   response: Response,
@@ -81,6 +101,6 @@ export async function writeBibleEdgeCache(
       new Response(cachedResponse.body, { status: cachedResponse.status, headers }),
     );
   } catch {
-    // A cache outage must never turn a valid Bible response into an error.
+    // Una avería de caché no debe invalidar una respuesta bíblica correcta.
   }
 }

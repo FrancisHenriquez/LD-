@@ -15,6 +15,8 @@ export const CATHOLIC_BIBLE_FALLBACK_URL =
 
 export const JERUSALEM_BIBLE_TRANSLATION_NAME = "Biblia de Jerusalén";
 
+// Relaciona abreviaturas editoriales con slugs internos. Incluye variantes de
+// OCR que confunden números romanos, la letra `I` y la `l` minúscula.
 const bookSlugs: Record<string, string> = {
   gen: "genesis",
   ex: "exodo",
@@ -149,6 +151,7 @@ function normalizeBook(book: string) {
   return /^[il]2/u.test(normalized) ? normalized.slice(1) : normalized;
 }
 
+// Convierte el slug interno en el nombre canónico que se muestra al lector.
 const bookSlugToSpanishReferenceBook: Record<string, string> = {
   genesis: "Génesis",
   exodo: "Éxodo",
@@ -225,12 +228,16 @@ const bookSlugToSpanishReferenceBook: Record<string, string> = {
   apocalipsis: "Apocalipsis",
 };
 
+// Cada proveedor utiliza su propio esquema de rutas; estas excepciones adaptan
+// los slugs internos sin alterar la etiqueta canónica de la referencia.
 const primaryReaderSlugOverrides: Record<string, string> = {
   cantar: "cantar-de-los-cantares",
   hechos: "hechos-de-los-apostoles",
   nahun: "nahum",
 };
 
+// El proveedor de respaldo usa nombres de libros largos y separados por guion
+// bajo, por lo que necesita una tabla de excepciones independiente.
 const backupReaderSlugOverrides: Record<string, string> = {
   "i-samuel": "primer_libro_de_samuel",
   "ii-samuel": "segundo_libro_de_samuel",
@@ -297,8 +304,14 @@ export type JerusalemBibleVerseRange = {
   endVerse: number;
 };
 
+// Admite rangos, segmentos discontinuos separados por punto y los marcadores
+// editoriales finales `s`, `ss` y `p` presentes en el texto fuente.
 const BIBLE_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<verses>\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*\.\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*(?:ss|s)?(?:\s*p)?)$/iu;
 
+/**
+ * Construye las fuentes de un capítulo en el orden real de failover. El lector
+ * prueba cada proveedor en esta secuencia, por lo que el orden es significativo.
+ */
 export function buildJerusalemBibleChapterSources(bookSlug: string, chapter: number) {
   return [
     {
@@ -318,7 +331,9 @@ export function buildJerusalemBibleChapterSources(bookSlug: string, chapter: num
 
 /**
  * Interpreta una cita conservando por separado sus rangos discontinuos.
- * Las marcas finales `s` o `ss` amplían únicamente el último segmento.
+ * Las marcas finales `s` o `ss` añaden tres versículos de contexto a cada lado
+ * del último segmento; `p` no modifica el intervalo. Normaliza rangos invertidos
+ * y fusiona los que se solapan.
  */
 export function expandReferenceRanges(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
@@ -404,7 +419,9 @@ export function buildScriptureLookupReference(reference: string) {
 
 /**
  * Construye la etiqueta, las URL y el rango necesarios para consultar una cita.
- * Devuelve `null` cuando la referencia o el libro no son reconocidos.
+ * Conserva los segmentos exactos en `verseRanges`, mientras `startVerse` y
+ * `endVerse` representan el rango exterior para consumidores heredados. Las
+ * fuentes quedan ordenadas para failover. Devuelve `null` si la cita no es válida.
  */
 export function buildJerusalemBibleLookup(reference: string) {
   const parsed = expandReferenceRanges(reference);

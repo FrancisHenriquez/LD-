@@ -30,6 +30,10 @@ const htmlEntities: Record<string, string> = {
   hellip: "…",
 };
 
+/**
+ * Decodifica el subconjunto de entidades que emplean los proveedores y deja
+ * intactas las entidades desconocidas para evitar pérdida de contenido.
+ */
 function decodeHtmlEntities(value: string) {
   return value.replace(/&(#x?[0-9a-f]+|[a-z]+);/giu, (entity, code: string) => {
     if (code.startsWith("#x") || code.startsWith("#X")) {
@@ -44,6 +48,7 @@ function decodeHtmlEntities(value: string) {
   });
 }
 
+/** Convierte el HTML acotado de un versículo en texto normalizado. */
 function plainTextFromHtml(value: string) {
   return decodeHtmlEntities(
     value
@@ -68,10 +73,13 @@ function plainTextFromMarkdown(value: string) {
     .trim();
 }
 
+/** Detecta páginas anti-bot que pueden responder con HTTP 200 pero sin Biblia. */
 export function isBibleChallengePage(value: string) {
   return /(?:just a moment|verifying you are human|captcha|cf-chl-|challenge-platform)/iu.test(value);
 }
 
+// Verifica el último número del título o encabezado para rechazar redirecciones
+// y respuestas almacenadas que pertenecen a otro capítulo.
 function reportsExpectedChapter(html: string, expectedChapter: number) {
   const headingHtml = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/iu)?.[1]
     ?? html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1];
@@ -81,6 +89,8 @@ function reportsExpectedChapter(html: string, expectedChapter: number) {
   return Number(numbers?.at(-1)) === expectedChapter;
 }
 
+// Exige números positivos y estrictamente crecientes, además de texto. Si un
+// versículo rompe el contrato, el parser descarta el capítulo completo.
 function addVerse(
   chapter: JerusalemBibleChapter,
   verseNumber: number,
@@ -95,6 +105,11 @@ function addVerse(
   return true;
 }
 
+/**
+ * Extrae un capítulo de la sección `prose` de BibliaCatólica.net para no
+ * confundir números de navegación con versículos. Devuelve `null` si el
+ * capítulo indicado, la secuencia o el contenido no son válidos.
+ */
 export function parseCatholicBibleNetChapter(html: string, expectedChapter: number) {
   if (isBibleChallengePage(html) || !reportsExpectedChapter(html, expectedChapter)) {
     return null;
@@ -119,6 +134,10 @@ export function parseCatholicBibleNetChapter(html: string, expectedChapter: numb
   return previousVerse > 0 ? chapter : null;
 }
 
+/**
+ * Extrae los versículos de Alpichel usando su identificador `vN` como número y
+ * aplica las mismas garantías de capítulo completo y secuencia creciente.
+ */
 export function parseAlpichelChapter(html: string, expectedChapter: number) {
   if (isBibleChallengePage(html) || !reportsExpectedChapter(html, expectedChapter)) {
     return null;
@@ -180,6 +199,11 @@ export function parseJerusalemBibleMarkdownChapter(
   return previousVerse > 0 ? chapter : null;
 }
 
+/**
+ * Devuelve un rango numerado solo cuando todos sus versículos están presentes.
+ * Rechaza huecos y recorta el final al último versículo disponible, comportamiento
+ * necesario para referencias contextuales `s`/`ss` cercanas al fin del capítulo.
+ */
 export function extractPassageFromChapter(
   chapter: JerusalemBibleChapter,
   startVerse: number,

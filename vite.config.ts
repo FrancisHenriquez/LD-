@@ -3,6 +3,8 @@ import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
+// Wrangler exige un UUID válido para el binding D1 local; el despliegue
+// sustituye este valor centinela por el identificador de la base real.
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
 
@@ -11,6 +13,8 @@ const { d1, r2 } = hostingConfig;
 // Seatbelt de macOS bloquea FSEvents; las vistas previas de Codex usan sondeo para HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
+// Traduce los nombres declarados en hosting.json a bindings locales de
+// Miniflare. Cuando D1 o R2 no están habilitados, no registra esos recursos.
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],

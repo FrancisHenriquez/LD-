@@ -8,6 +8,8 @@ export type ArticleSection = {
 type SectionKind = "INTRO" | "AT" | "NT" | null;
 type ParagraphPiece = ArticleParagraph & { marker: SectionKind };
 
+// Reconoce rótulos editoriales solo al inicio o después del cierre de una frase,
+// y captura ordinales para poder conservar prefijos como `1.` y `2.`.
 const structuralMarkerPattern =
   /(?:^|(?<=[.!?…])\s+)(?:(?:(\d+)\.\s+)?(INTRODUCCI[ÓO]N|AT|NT)\.|(\d+)\.\s+(Antiguo Testamento|Nuevo Testamento)[.,])(?:\s+|$)/giu;
 
@@ -19,6 +21,10 @@ function sectionKind(marker: string): Exclude<SectionKind, null> {
     : "NT";
 }
 
+/**
+ * Detecta el primer encabezado del desarrollo cuando el OCR no conserva un
+ * marcador explícito que separe la introducción del resto del artículo.
+ */
 function isStructuralSectionStart(paragraph: ArticleParagraph) {
   const text = paragraph.text.trim();
   return /^(?:[IVXLCDM]+|\d+)\.\s/u.test(text) ||
@@ -55,7 +61,10 @@ function splitParagraph(paragraph: string, sourceIndex: number): ParagraphPiece[
   return pieces;
 }
 
-/** Repara un único salto OCR que divide "Antiguo Testamento" en dos bloques. */
+/**
+ * Omite el artefacto `VocTB`, conserva el índice de origen y repara saltos OCR
+ * que dividen “Antiguo Testamento” o “Nuevo Testamento” en dos bloques.
+ */
 function normalizeParagraphs(paragraphs: string[]): ArticleParagraph[] {
   const normalized: ArticleParagraph[] = [];
 
@@ -107,11 +116,15 @@ export function splitArticleSections(paragraphs: string[]): ArticleSection[] {
 
   if (current.kind || current.paragraphs.length) sections.push(current);
 
+  // El contenido anterior a un rótulo explícito también pertenece a la
+  // introducción, aunque el OCR haya desplazado el marcador hacia abajo.
   if (sections[0]?.kind === null && sections[1]?.kind === "INTRO") {
     sections[1].paragraphs.unshift(...sections[0].paragraphs);
     sections.shift();
   }
 
+  // Si solo sobrevive el rótulo NT, infiere el límite anterior entre la
+  // introducción y AT mediante el primer encabezado estructural.
   if (sections[0]?.kind === null && sections[1]?.kind === "NT") {
     const atStart = sections[0].paragraphs.findIndex(isStructuralSectionStart);
     if (atStart > 0) {
@@ -148,6 +161,8 @@ export function splitArticleSections(paragraphs: string[]): ArticleSection[] {
     paragraphs: sectionParagraphs,
   }));
 
+  // En artículos sin ningún rótulo, usa la misma heurística para separar una
+  // introducción inicial del desarrollo sin inventar títulos para este último.
   if (articleSections.length === 1 && articleSections[0].title === null) {
     const developmentStart = articleSections[0].paragraphs.findIndex(
       isStructuralSectionStart,

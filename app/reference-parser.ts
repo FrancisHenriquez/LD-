@@ -2,6 +2,10 @@ export type ReferenceToken =
   | { type: "text"; value: string }
   | { type: "citation"; value: string; label: string };
 
+// La gramática admite abreviaturas y variantes OCR de libros, rangos, segmentos
+// discontinuos y sufijos contextuales. Primero localiza contenedores candidatos;
+// después exige un libro explícito o una secuencia completa que pueda heredarlo,
+// evitando convertir números incidentales de la prosa en referencias.
 const bibleBooks = String.raw`(?:Gén|Gen|Éx|Ex|Lév|Lev|Núm|Num|Dt|Jos|Jue|Rut|[12I]{1,3}Sa|[12I]{1,3}Re|[12I]{1,3}Par|Esd|Neh|Tob|Jdt|Est|Job|Sal|(?:[12]|[Il]{1,3})\s*Mac|Prov|Ecl|Cant|Sab|Eclo|Is|Jer|Lam|Bar|Ez|Dan|Os|Jl|Am|Abd|Jon|Miq|Nah|Hab|Sof|Ag|Zac|Mal|Mt|Mc|Lc|Jn|Act|Hch|Rom|Rm|[12I]{1,3}Cor|Gál|Gal|Ef|Flp|Col|[12I]{1,3}Tes|[12I]{1,3}Tim|Tit|Flm|Heb|Sant|[12I]{1,3}Pe|[123I]{1,3}Jn|Jud|Ap)`;
 const verse = String.raw`\d{1,3}(?:\.\d{1,3})*(?:[-–]\d{1,3}(?:\.\d{1,3})*)?(?:ss|s)?(?:\s*p)?`;
 const chapterAndVerse = String.raw`\d{1,3}[,.:]\s*${verse}`;
@@ -41,7 +45,8 @@ function pushText(tokens: ReferenceToken[], value: string) {
 
 /**
  * Separa una secuencia de citas y conserva el último libro para referencias
- * posteriores que solo indiquen capítulo y versículo.
+ * posteriores que solo indiquen capítulo y versículo. Solo permite herencia si
+ * el fragmento completo, aparte de `cf.`, tiene forma de cita bíblica.
  */
 function tokenizeSequence(
   value: string,
