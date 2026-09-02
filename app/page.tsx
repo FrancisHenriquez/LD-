@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { splitArticleSections } from "./article-sections";
 import articlesData from "./data/articles.json";
 import {
+  buildScripturePanelReferences,
   buildScriptureLookupReference,
   catholicBibleUrl,
 } from "./catholic-bible";
@@ -23,7 +24,7 @@ type Article = {
   sourcePages: number[];
 };
 
-type OpenReference = { label: string };
+type OpenReference = { label: string; panelReferences: string[] };
 
 const articles = articlesData as Record<string, Article>;
 
@@ -126,18 +127,20 @@ function ArticleBody({
     ? sections[0].paragraphs.findIndex(({ text }) => !isArticleHeading(text))
     : -1;
   // Busca una sola cita inicial para adelantar su carga mientras se lee el artículo.
-  const firstReference = useMemo(() => {
+  const firstReferencePanels = useMemo(() => {
     for (const paragraph of paragraphs) {
       const citation = tokenizeBiblicalReferences(paragraph).find((token) => token.type === "citation");
-      if (citation?.type === "citation") return citation.label;
+      if (citation?.type === "citation") {
+        return buildScripturePanelReferences(citation.label);
+      }
     }
     return null;
   }, [paragraphs]);
 
   // Inicia la precarga cuando el contenido proporciona una referencia válida.
   useEffect(() => {
-    if (firstReference) prefetchScripture(firstReference);
-  }, [firstReference]);
+    firstReferencePanels?.forEach(prefetchScripture);
+  }, [firstReferencePanels]);
 
   return <>
     <header className={`article-opening${hasTextIntroduction ? "" : " article-opening--implicit"}`}>
@@ -199,6 +202,8 @@ function renderReferences(
 ) {
   return tokenizeBiblicalReferences(text).map((token, index) => {
     if (token.type === "text") return token.value;
+    const panelReferences = buildScripturePanelReferences(token.label);
+
     return (
       <a
         className="bib-ref"
@@ -209,10 +214,10 @@ function renderReferences(
         onClick={(event) => {
           // Mantiene la consulta dentro de la aplicación en vez de navegar al enlace.
           event.preventDefault();
-          onOpenReference({ label: token.label });
+          onOpenReference({ label: token.label, panelReferences });
         }}
-        onFocus={() => prefetchScripture(token.label)}
-        onPointerDown={() => prefetchScripture(token.label)}
+        onFocus={() => panelReferences.forEach(prefetchScripture)}
+        onPointerDown={() => panelReferences.forEach(prefetchScripture)}
         aria-label={`Consultar la referencia bíblica ${token.label}`}
       >
         {token.value}
@@ -252,10 +257,53 @@ function Footer() {
 }
 
 /**
- * Consulta y presenta una referencia bíblica en un diálogo accesible.
- * Cancela las actualizaciones de estado si cambia la referencia o se desmonta.
+ * Presenta uno o dos paneles de igual tamaño dentro de un único diálogo
+ * accesible. Las citas discontinuas solo se dividen cuando su salto es amplio.
  */
 function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onClose: () => void; closeRef: React.RefObject<HTMLButtonElement | null> }) {
+  const isSplit = reference.panelReferences.length > 1;
+
+  return <div
+    className={`modal-backdrop${isSplit ? " modal-backdrop--split" : ""}`}
+    onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+  >
+    <div
+      className={`modal-dialog${isSplit ? " modal-dialog--split" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${isSplit ? "Referencias bíblicas" : "Referencia bíblica"} ${reference.label}`}
+    >
+      {reference.panelReferences.map((panelReference, index) => (
+        <ScripturePanel
+          closeRef={index === 0 ? closeRef : undefined}
+          key={panelReference}
+          onClose={onClose}
+          panelCount={reference.panelReferences.length}
+          panelIndex={index}
+          reference={panelReference}
+        />
+      ))}
+    </div>
+  </div>;
+}
+
+/**
+ * Carga y muestra un pasaje; cada panel conserva su propio error y reintento.
+ * Cancela las actualizaciones de estado si cambia la referencia o se desmonta.
+ */
+function ScripturePanel({
+  reference,
+  onClose,
+  closeRef,
+  panelCount,
+  panelIndex,
+}: {
+  reference: string;
+  onClose: () => void;
+  closeRef?: React.RefObject<HTMLButtonElement | null>;
+  panelCount: number;
+  panelIndex: number;
+}) {
   const [scripture, setScripture] = useState<Scripture | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -267,7 +315,7 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
 
     /** Valida la referencia, solicita el pasaje y actualiza el estado del modal. */
     async function loadScriptureForModal() {
-      const lookupReference = buildScriptureLookupReference(reference.label);
+      const lookupReference = buildScriptureLookupReference(reference);
       if (!lookupReference) {
         if (!cancelled) {
           setScripture(null);
@@ -281,7 +329,7 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
       setScripture(null);
 
       try {
-        const data = await loadScripture(reference.label);
+        const data = await loadScripture(reference);
 
         if (cancelled) return;
 
@@ -299,14 +347,17 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
     return () => {
       cancelled = true;
     };
-  }, [reference.label, retryKey]);
+  }, [reference, retryKey]);
 
-  return <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <button ref={closeRef} className="modal-close" onClick={onClose} aria-label="Cerrar referencia">×</button>
-      <p className="eyebrow">Referencia bíblica</p>
-      <h2 id="modal-title">{reference.label}</h2>
-      <a className="reference-link" href={catholicBibleUrl(reference.label)} target="_blank" rel="noreferrer">
+  const titleId = `modal-title-${panelIndex}`;
+
+  return <section className="modal" aria-labelledby={titleId}>
+      <button ref={closeRef} className="modal-close" onClick={onClose} aria-label="Cerrar referencias">×</button>
+      <p className="eyebrow">
+        Referencia bíblica{panelCount > 1 ? ` ${panelIndex + 1} de ${panelCount}` : ""}
+      </p>
+      <h2 id={titleId}>{reference}</h2>
+      <a className="reference-link" href={catholicBibleUrl(reference)} target="_blank" rel="noreferrer">
         Abrir en La Biblia de Jerusalén (católica) ↗
       </a>
       <p className="modal-note">Enlace católico en español · Referencia detectada en el PDF proporcionado.</p>
@@ -325,6 +376,5 @@ function Modal({ reference, onClose, closeRef }: { reference: OpenReference; onC
           ))}
         </>}
       </div>
-    </div>
-  </div>;
+  </section>;
 }

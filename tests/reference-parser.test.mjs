@@ -59,6 +59,40 @@ test("detecta las abreviaturas usadas en las introducciones", () => {
   );
 });
 
+test("incluye segmentos discontinuos separados por espacios en una sola cita", () => {
+  const source = "Tal es el misterio (Dan 2,22. 27s) cuya sustancia permanece.";
+  const tokens = tokenizeBiblicalReferences(source);
+  const result = tokens.filter((token) => token.type === "citation");
+
+  assert.deepEqual(result, [{
+    type: "citation",
+    value: "Dan 2,22. 27s",
+    label: "Dan 2,22.27s",
+  }]);
+  assert.equal(tokens.map((token) => token.value).join(""), source);
+});
+
+test("conserva rangos en cada segmento discontinuo", () => {
+  const result = citations("(Sal 33,1-3. 21-22) y (Jn 11,3. 11.35 ss)");
+
+  assert.deepEqual(
+    result.map((item) => item.label),
+    ["Sal 33,1-3.21-22", "Jn 11,3.11.35ss"],
+  );
+});
+
+test("no confunde un cambio de capítulo con un segmento discontinuo", () => {
+  const result = citations("(Act 4,31. 10,44ss)");
+
+  assert.deepEqual(
+    result.map((item) => ({ value: item.value, label: item.label })),
+    [
+      { value: "Act 4,31", label: "Act 4,31" },
+      { value: "10,44ss", label: "Act 10,44ss" },
+    ],
+  );
+});
+
 test("no convierte fechas ni numeración editorial", () => {
   assert.equal(citations("Xavier Léon-Dufour (1912-2007), edición 2001.").length, 0);
   assert.equal(citations("Véanse los apartados (1.2 y 3.4).").length, 0);

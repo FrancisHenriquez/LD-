@@ -306,7 +306,11 @@ export type JerusalemBibleVerseRange = {
 
 // Admite rangos, segmentos discontinuos separados por punto y los marcadores
 // editoriales finales `s`, `ss` y `p` presentes en el texto fuente.
-const BIBLE_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<verses>\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*\.\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*(?:ss|s)?(?:\s*p)?)$/iu;
+const BIBLE_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<verses>\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*\.\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*(?:\s*(?:ss|s))?(?:\s*p)?)$/iu;
+
+// Hasta tres versículos omitidos se leen cómodamente en un solo panel. Cuando
+// el salto es mayor, el visor separa la cita por su distancia más grande.
+const MAX_SINGLE_PANEL_OMITTED_VERSES = 3;
 
 /**
  * Construye las fuentes de un capítulo en el orden real de failover. El lector
@@ -390,6 +394,81 @@ export function expandReferenceRanges(reference: string) {
     chapter: Number(match.groups.chapter),
     verseRanges: mergedVerseRanges,
   };
+}
+
+/**
+ * Prepara uno o dos paneles para una cita discontinua. Usa los segmentos tal
+ * como aparecen en la fuente, antes de ampliar `s` o `ss`, y divide únicamente
+ * por el mayor salto que omita más de tres versículos. Así evita tanto un panel
+ * excesivamente disperso como una fila de diálogos para citas con muchos puntos.
+ */
+export function buildScripturePanelReferences(reference: string) {
+  const cleanReference = reference.replace(/[()]/g, "").trim();
+  const match = cleanReference.match(BIBLE_REFERENCE_PATTERN);
+
+  if (!match?.groups) return [cleanReference];
+
+  const { book, chapter, verses } = match.groups;
+  const compactVerses = verses.replace(/\s/gu, "");
+  const hasParallelMarker = /p$/iu.test(compactVerses);
+  const withoutParallelMarker = compactVerses.replace(/p$/iu, "");
+  const contextMarker = withoutParallelMarker.match(/(?:ss|s)$/iu)?.[0] ?? "";
+  const verseExpression = withoutParallelMarker.replace(/(?:ss|s)$/iu, "");
+  const sourceSegments = verseExpression.split(".");
+
+  if (sourceSegments.length < 2) return [cleanReference];
+
+  const ranges = sourceSegments.map((segment) => {
+    const segmentMatch = segment.match(/^(?<start>\d{1,3})(?:[-–](?<end>\d{1,3}))?$/u);
+    if (!segmentMatch?.groups) return null;
+
+    const firstVerse = Number(segmentMatch.groups.start);
+    const lastVerse = Number(segmentMatch.groups.end ?? segmentMatch.groups.start);
+    return {
+      startVerse: Math.min(firstVerse, lastVerse),
+      endVerse: Math.max(firstVerse, lastVerse),
+    };
+  });
+
+  if (ranges.some((range) => range === null)) return [cleanReference];
+
+  let splitIndex = -1;
+  let largestOmittedVerseCount = MAX_SINGLE_PANEL_OMITTED_VERSES;
+
+  for (let index = 1; index < ranges.length; index += 1) {
+    const previous = ranges[index - 1];
+    const current = ranges[index];
+    if (!previous || !current) continue;
+
+    const omittedVerseCount = current.startVerse > previous.endVerse
+      ? current.startVerse - previous.endVerse - 1
+      : previous.startVerse > current.endVerse
+        ? previous.startVerse - current.endVerse - 1
+        : 0;
+
+    if (omittedVerseCount > largestOmittedVerseCount) {
+      largestOmittedVerseCount = omittedVerseCount;
+      splitIndex = index;
+    }
+  }
+
+  if (splitIndex < 0) return [cleanReference];
+
+  const buildPanelReference = (startIndex: number, endIndex: number) => {
+    const containsFinalSegment = endIndex === sourceSegments.length;
+    const suffix = containsFinalSegment
+      ? `${contextMarker}${hasParallelMarker ? " p" : ""}`
+      : "";
+
+    return `${book.trim()} ${chapter},${sourceSegments
+      .slice(startIndex, endIndex)
+      .join(".")}${suffix}`;
+  };
+
+  return [
+    buildPanelReference(0, splitIndex),
+    buildPanelReference(splitIndex, sourceSegments.length),
+  ];
 }
 
 /**

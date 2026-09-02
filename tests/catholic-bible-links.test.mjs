@@ -9,6 +9,7 @@ import {
   JERUSALEM_BIBLE_TRANSLATION_NAME,
   buildJerusalemBibleChapterSources,
   buildJerusalemBibleLookup,
+  buildScripturePanelReferences,
   buildScriptureLookupReference,
   catholicBibleUrl,
   expandReferenceRange,
@@ -134,6 +135,27 @@ test('conserva los segmentos discontinuos y aplica s o ss solo al último', () =
   ]);
   assert.equal(psalmLookup?.referenceLabel, 'Salmos 33:1-3, 21');
   assert.equal(buildScriptureLookupReference('Mc 12,35ss p'), 'Marcos 12:32-38');
+});
+
+test('divide en dos paneles solo las citas con segmentos muy alejados', () => {
+  assert.deepEqual(buildScripturePanelReferences('Dan 2,22. 27s'), [
+    'Dan 2,22',
+    'Dan 2,27s'
+  ]);
+  assert.deepEqual(buildScripturePanelReferences('Sal 33,1-3.21'), [
+    'Sal 33,1-3',
+    'Sal 33,21'
+  ]);
+  assert.deepEqual(buildScripturePanelReferences('Jn 1,1.3'), [
+    'Jn 1,1.3'
+  ]);
+});
+
+test('limita a dos paneles y divide por el mayor salto de la cita', () => {
+  assert.deepEqual(buildScripturePanelReferences('Sal 1,1.10.30ss p'), [
+    'Sal 1,1.10',
+    'Sal 1,30ss p'
+  ]);
 });
 
 test('construye referencias bíblicas en español para la búsqueda del texto', () => {
