@@ -9,6 +9,7 @@ import {
   catholicBibleUrl,
 } from "./catholic-bible";
 import { tokenizeBiblicalReferences } from "./reference-parser";
+import { groupBiblicalReferences, type ReferenceGroup } from "./reference-groups";
 import {
   loadScripture,
   prefetchScripture,
@@ -122,6 +123,8 @@ function ArticleBody({
 }) {
   const paragraphs = useMemo(() => article.text.split(/\n{2,}/).filter(Boolean), [article.text]);
   const sections = useMemo(() => splitArticleSections(paragraphs), [paragraphs]);
+  const referenceGroups = useMemo(() => groupBiblicalReferences(article.text), [article.text]);
+  const referenceCount = referenceGroups.reduce((total, group) => total + group.references.length, 0);
   const hasTextIntroduction = sections[0]?.title === "Introducción";
   const leadParagraphIndex = hasTextIntroduction
     ? sections[0].paragraphs.findIndex(({ text }) => !isArticleHeading(text))
@@ -145,7 +148,10 @@ function ArticleBody({
   return <>
     <header className={`article-opening${hasTextIntroduction ? "" : " article-opening--implicit"}`}>
       <p className="eyebrow">Vocabulario de teología bíblica</p>
-      <h2>{article.title}</h2>
+      <h2 id="article-title">{article.title}</h2>
+      <a className="article-reference-jump" href="#citas-por-procedencia">
+        Citas por procedencia <span>({referenceCount})</span><span aria-hidden="true">↓</span>
+      </a>
     </header>
     <div className="article-body">
       {sections.map((section, sectionIndex) => {
@@ -179,7 +185,47 @@ function ArticleBody({
         </Fragment>;
       })}
     </div>
+    <ArticleReferenceGroups key={article.title} groups={referenceGroups} onOpenReference={onOpenReference} />
   </>;
+}
+
+/** Índice de citas del tema; cada grupo se despliega sin abandonar la lectura. */
+function ArticleReferenceGroups({ groups, onOpenReference }: {
+  groups: ReferenceGroup[];
+  onOpenReference: (reference: OpenReference) => void;
+}) {
+  const total = groups.reduce((count, group) => count + group.references.length, 0);
+
+  return <section className="article-references" id="citas-por-procedencia" aria-labelledby="references-title">
+    <div className="reference-section-heading">
+      <h3 id="references-title">Citas por procedencia</h3>
+      <span aria-hidden="true">✣</span>
+    </div>
+    <p className="reference-section-intro">
+      {total ? `${total} ${total === 1 ? "cita del tema, organizada" : "citas del tema, organizadas"} por su libro de origen.` : "Este tema no contiene citas de estos cuatro grupos."}
+      {total > 0 && " Abre un grupo para consultarlas."}
+    </p>
+    <div className="reference-groups">
+      {groups.map((group, index) => <details className="reference-group" key={group.id}>
+        <summary>
+          <span className="reference-group-number" aria-hidden="true">0{index + 1}</span>
+          <span className="reference-group-label">
+            <span className="reference-group-title">{group.title}</span>
+            <span className="reference-group-description">{group.description}</span>
+          </span>
+          <span className="reference-group-count">{group.references.length} {group.references.length === 1 ? "cita" : "citas"}</span>
+          <span className="reference-group-toggle" aria-hidden="true" />
+        </summary>
+        {group.references.length ? <ul className="reference-group-list" aria-label={`Citas: ${group.title}`}>
+          {group.references.map((reference) => <li key={reference.key}>
+            <ScriptureReference label={reference.label} onOpenReference={onOpenReference} />
+          </li>)}
+        </ul> : <p className="reference-group-empty">No hay citas de este grupo en el tema.</p>}
+      </details>)}
+    </div>
+    <p className="reference-section-note">Solo se incluyen los libros de estos cuatro grupos. Las citas repetidas se muestran una sola vez.</p>
+    <a className="article-reference-return" href="#article-title">Volver al comienzo del tema <span aria-hidden="true">↑</span></a>
+  </section>;
 }
 
 /** Reconoce los encabezados editoriales que forman parte del texto fuente. */
@@ -202,28 +248,33 @@ function renderReferences(
 ) {
   return tokenizeBiblicalReferences(text).map((token, index) => {
     if (token.type === "text") return token.value;
-    const panelReferences = buildScripturePanelReferences(token.label);
+    return <ScriptureReference key={`${token.label}-${index}`} label={token.label} text={token.value} onOpenReference={onOpenReference} />;
+  });
+}
 
-    return (
-      <a
+/** Comparte el mismo visor y la precarga entre el texto y el índice de citas. */
+function ScriptureReference({ label, text = label, onOpenReference }: {
+  label: string;
+  text?: string;
+  onOpenReference: (reference: OpenReference) => void;
+}) {
+  const panelReferences = buildScripturePanelReferences(label);
+  return <a
         className="bib-ref"
-        href={catholicBibleUrl(token.label)}
-        key={`${token.label}-${index}`}
+        href={catholicBibleUrl(label)}
         target="_blank"
         rel="noreferrer"
         onClick={(event) => {
           // Mantiene la consulta dentro de la aplicación en vez de navegar al enlace.
           event.preventDefault();
-          onOpenReference({ label: token.label, panelReferences });
+          onOpenReference({ label, panelReferences });
         }}
         onFocus={() => panelReferences.forEach(prefetchScripture)}
         onPointerDown={() => panelReferences.forEach(prefetchScripture)}
-        aria-label={`Consultar la referencia bíblica ${token.label}`}
+        aria-label={`Consultar la referencia bíblica ${label}`}
       >
-        {token.value}
-      </a>
-    );
-  });
+        {text}
+      </a>;
 }
 
 /** Muestra la cabecera editorial y la identidad visual del sitio. */
