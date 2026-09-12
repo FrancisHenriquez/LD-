@@ -307,6 +307,10 @@ export type JerusalemBibleVerseRange = {
 // Admite rangos, segmentos discontinuos separados por punto y los marcadores
 // editoriales finales `s`, `ss` y `p` presentes en el texto fuente.
 const BIBLE_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<verses>\d{1,3}(?:\s*[-–]\s*\d{1,3})?(?:\s*\.\s*\d{1,3}(?:\s*[-–]\s*\d{1,3})?)*(?:\s*(?:ss|s))?(?:\s*p)?)$/iu;
+const CHAPTER_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})(?:\s*[-–]\s*(?<endChapter>\d{1,3}))?$/u;
+const CROSS_CHAPTER_REFERENCE_PATTERN = /^(?<book>.+?)\s+(?<chapter>\d{1,3})\s*[,.:]\s*(?<startVerse>\d{1,3})\s*[-–]\s*(?<endChapter>\d{1,3})\s*[,:]\s*(?<endVerse>\d{1,3})$/u;
+// El extractor recorta el extremo al último versículo real del capítulo.
+const THROUGH_CHAPTER_END = 999;
 
 // Hasta tres versículos omitidos se leen cómodamente en un solo panel. Cuando
 // el salto es mayor, el visor separa la cita por su distancia más grande.
@@ -341,6 +345,21 @@ export function buildJerusalemBibleChapterSources(bookSlug: string, chapter: num
  */
 export function expandReferenceRanges(reference: string) {
   const cleanReference = reference.replace(/[()]/g, "").trim();
+  const chapters = cleanReference.match(CROSS_CHAPTER_REFERENCE_PATTERN)
+    ?? cleanReference.match(CHAPTER_REFERENCE_PATTERN);
+  if (chapters?.groups) {
+    const { book, chapter, endChapter, startVerse, endVerse } = chapters.groups;
+    const first = Number(chapter);
+    const last = Number(endChapter ?? chapter);
+    if (first < 1 || last < first || last > 150 || Number(startVerse ?? 1) < 1 || Number(endVerse ?? 1) < 1) return null;
+    return {
+      book,
+      chapter: first,
+      endChapter: last,
+      wholeChapters: !startVerse,
+      verseRanges: [{ startVerse: Number(startVerse ?? 1), endVerse: Number(endVerse ?? THROUGH_CHAPTER_END) }],
+    };
+  }
   const match = cleanReference.match(BIBLE_REFERENCE_PATTERN);
 
   if (!match?.groups) return null;
@@ -516,8 +535,24 @@ export function buildJerusalemBibleLookup(reference: string) {
   const startVerse = Math.min(...parsed.verseRanges.map((range) => range.startVerse));
   const endVerse = Math.max(...parsed.verseRanges.map((range) => range.endVerse));
 
+  const lastChapter = parsed.endChapter ?? parsed.chapter;
+  const chapterRanges = Array.from({ length: lastChapter - parsed.chapter + 1 }, (_, index) => {
+    const chapter = parsed.chapter + index;
+    const verseRanges = lastChapter === parsed.chapter ? parsed.verseRanges : [{
+      startVerse: index === 0 ? startVerse : 1,
+      endVerse: chapter === lastChapter ? endVerse : THROUGH_CHAPTER_END,
+    }];
+    return { chapter, verseRanges };
+  });
+  const referenceLabel = parsed.wholeChapters
+    ? `${bookName} ${parsed.chapter}${lastChapter === parsed.chapter ? "" : `-${lastChapter}`}`
+    : lastChapter !== parsed.chapter
+      ? `${bookName} ${parsed.chapter}:${startVerse}-${lastChapter}:${endVerse}`
+      : `${bookName} ${parsed.chapter}:${verseLabel}`;
+
   return {
-    referenceLabel: `${bookName} ${parsed.chapter}:${verseLabel}`,
+    referenceLabel,
+    chapterRanges,
     readerUrl: `${CATHOLIC_BIBLE_READER_BASE_URL}/${slug}/${parsed.chapter}/`,
     sourceUrl: `${CATHOLIC_BIBLE_BASE_URL}/${backupReaderSlug(slug)}/${parsed.chapter}#v${startVerse}`,
     bookSlug: slug,
@@ -534,15 +569,5 @@ export function buildJerusalemBibleLookup(reference: string) {
  * Si la cita no es válida, devuelve la página bíblica alternativa.
  */
 export function catholicBibleUrl(reference: string) {
-  const cleanReference = reference.replace(/[()]/g, "").trim();
-  const match = cleanReference.match(BIBLE_REFERENCE_PATTERN);
-
-  if (!match?.groups) return CATHOLIC_BIBLE_FALLBACK_URL;
-
-  const slug = bookSlugs[normalizeBook(match.groups.book)];
-  const firstVerse = match.groups.verses.match(/\d{1,3}/u)?.[0];
-
-  if (!slug || !firstVerse) return CATHOLIC_BIBLE_FALLBACK_URL;
-
-  return `${CATHOLIC_BIBLE_BASE_URL}/${backupReaderSlug(slug)}/${match.groups.chapter}#v${firstVerse}`;
+  return buildJerusalemBibleLookup(reference)?.sourceUrl ?? CATHOLIC_BIBLE_FALLBACK_URL;
 }

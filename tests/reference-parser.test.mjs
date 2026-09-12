@@ -98,6 +98,37 @@ test("no convierte fechas ni numeración editorial", () => {
   assert.equal(citations("Véanse los apartados (1.2 y 3.4).").length, 0);
 });
 
+test("enlaza la cita completa de Amigo sin consumir el capítulo siguiente", () => {
+  const source = "(Eclo 6,5-13; 12,8-13,23: 37,1-5)";
+  const tokens = tokenizeBiblicalReferences(source);
+  assert.deepEqual(tokens.filter((token) => token.type === "citation"), [
+    { type: "citation", value: "Eclo 6,5-13", label: "Eclo 6,5-13" },
+    { type: "citation", value: "12,8-13,23", label: "Eclo 12,8-13,23" },
+    { type: "citation", value: "37,1-5", label: "Eclo 37,1-5" },
+  ]);
+  assert.equal(tokens.map((token) => token.value).join(""), source);
+});
+
+test("enlaza capítulos completos y rangos con libro explícito", () => {
+  assert.deepEqual(citations("(Sal 133; Prov 15,17), (ISa 19-20) y Gén 2-3.").map((token) => token.label), [
+    "Sal 133", "Prov 15,17", "ISa 19-20", "Gén 2-3",
+  ]);
+  assert.deepEqual(citations("Sal 133: Prov 15,17").map((token) => token.label), ["Prov 15,17"]);
+});
+
+test("no convierte cifras OCR incompletas en capítulos ni rangos inválidos", () => {
+  for (const source of ["(Mt 11,l9)", "(Ef 5 25-33)", "(Dt 411)", "(Sal 71-15)", "(apartados 19-20)"]) {
+    assert.deepEqual(citations(source), [], source);
+  }
+});
+
+test("conserva literalmente el texto de todos los artículos", () => {
+  const articles = JSON.parse(readFileSync(new URL("../app/data/articles.json", import.meta.url), "utf8"));
+  for (const article of Object.values(articles)) {
+    assert.equal(tokenizeBiblicalReferences(article.text).map((token) => token.value).join(""), article.text, article.title);
+  }
+});
+
 test("cada enlace representa exactamente una cita", () => {
   const articles = JSON.parse(
     readFileSync(new URL("../app/data/articles.json", import.meta.url), "utf8"),
@@ -119,7 +150,7 @@ test("cada enlace representa exactamente una cita", () => {
     for (const item of result) {
       assert.equal(item.label.includes(";"), false, `${name}: ${item.label}`);
       assert.equal(item.label.includes("\n"), false, `${name}: ${item.label}`);
-      assert.match(item.label, /\d+[,.:]\d+/u, `${name}: ${item.label}`);
+      assert.match(item.label, /\s\d+(?:[,.:]\d+|(?:-\d+)?$)/u, `${name}: ${item.label}`);
     }
   }
 });

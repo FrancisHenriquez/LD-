@@ -80,8 +80,8 @@ export function groupBiblicalReferences(text: string): ReferenceGroup[] {
 
       // No se deduplica por URL ni por rangos ampliados: se perderían citas
       // distintas que empiezan en el mismo versículo o tienen marcas s/ss.
-      const verseExpression = token.label.replace(/^.+?\s+\d+[,.:]/u, "")
-        .replace(/\s+/gu, "").replace(/–/gu, "-").toLowerCase();
+      const verseExpression = token.label.replace(/^.+?\s+(?=\d)/u, "")
+        .replace(/^(\d+)[.:]/u, "$1,").replace(/\s+/gu, "").replace(/–/gu, "-").toLowerCase();
       const key = `${lookup.bookSlug}:${lookup.chapter}:${verseExpression}`;
       if (seen.has(key)) continue;
       seen.add(key);

@@ -21,6 +21,7 @@ import {
   parseCatholicBibleNetChapter
 } from '../app/jerusalem-bible.ts';
 import { tokenizeBiblicalReferences } from '../app/reference-parser.ts';
+import { fetchJerusalemBibleReference } from '../app/jerusalem-bible-reader.ts';
 
 const articles = JSON.parse(
   readFileSync(new URL('../app/data/articles.json', import.meta.url), 'utf8')
@@ -135,6 +136,32 @@ test('conserva los segmentos discontinuos y aplica s o ss solo al último', () =
   ]);
   assert.equal(psalmLookup?.referenceLabel, 'Salmos 33:1-3, 21');
   assert.equal(buildScriptureLookupReference('Mc 12,35ss p'), 'Marcos 12:32-38');
+});
+
+test('resuelve capítulos completos y conserva todos los extremos de un rango', async () => {
+  const lookup = buildJerusalemBibleLookup('Eclo 12,8-13,23');
+  assert.equal(lookup.referenceLabel, 'Eclesiástico 12:8-13:23');
+  assert.deepEqual(lookup.chapterRanges, [
+    { chapter: 12, verseRanges: [{ startVerse: 8, endVerse: 999 }] },
+    { chapter: 13, verseRanges: [{ startVerse: 1, endVerse: 23 }] },
+  ]);
+  assert.equal(catholicBibleUrl('Sal 133'), `${CATHOLIC_BIBLE_BASE_URL}/salmos/133#v1`);
+  assert.deepEqual(buildJerusalemBibleLookup('ISa 19-20').chapterRanges.map(({chapter}) => chapter), [19, 20]);
+  assert.deepEqual(buildScripturePanelReferences('Eclo 12,8-13,23'), ['Eclo 12,8-13,23']);
+  const requested = [];
+  const result = await fetchJerusalemBibleReference(lookup, async (provider, book, chapter) => {
+    requested.push([book, chapter]);
+    return Object.fromEntries(Array.from({ length: 25 }, (_, i) => [i + 1, `Texto ${chapter}:${i + 1}`]));
+  });
+  assert.deepEqual(requested, [['eclesiastico', 12], ['eclesiastico', 13]]);
+  assert.match(result.text, /Capítulo 12\n\n8\. Texto 12:8/u);
+  assert.match(result.text, /25\. Texto 12:25\n\nCapítulo 13\n\n1\. Texto 13:1/u);
+  assert.ok(result.text.endsWith('23. Texto 13:23'));
+  assert.equal(result.text.includes('7. Texto 12:7'), false);
+  assert.equal(result.text.includes('24. Texto 13:24'), false);
+
+  const psalm = await fetchJerusalemBibleReference(buildJerusalemBibleLookup('Sal 133'), async () => ({1: 'Uno', 2: 'Dos', 3: 'Tres'}));
+  assert.equal(psalm.text, '1. Uno\n\n2. Dos\n\n3. Tres');
 });
 
 test('divide en dos paneles solo las citas con segmentos muy alejados', () => {

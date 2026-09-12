@@ -1,3 +1,5 @@
+import { buildJerusalemBibleLookup } from "./catholic-bible.ts";
+
 export type ReferenceToken =
   | { type: "text"; value: string }
   | { type: "citation"; value: string; label: string };
@@ -10,20 +12,23 @@ const bibleBooks = String.raw`(?:Gén|Gen|Éx|Ex|Lév|Lev|Núm|Num|Dt|Jos|Jue|Ru
 const verseNumber = String.raw`\d{1,3}(?!\d)`;
 const verseSegment = String.raw`${verseNumber}(?:\s*[-–]\s*${verseNumber})?`;
 const verse = String.raw`${verseSegment}(?:\s*\.\s*${verseSegment}(?!\s*[,:]\s*\d))*(?:\s*(?:ss|s)(?!\p{L}))?(?:\s*p(?!\p{L}))?`;
-const chapterAndVerse = String.raw`\d{1,3}[,.:]\s*${verse}`;
+const crossChapter = String.raw`${verseNumber}\s*[,.:]\s*${verseNumber}\s*[-–]\s*${verseNumber}\s*,\s*${verseNumber}`;
+const chapterAndVerse = String.raw`(?:${crossChapter}|${verseNumber}\s*[,.:]\s*${verse})(?!\s*,\s*\d)`;
+const chapterOnly = String.raw`${verseSegment}(?!\s*(?:[,:\d–-]|\.\s*\d))(?![\p{L}\p{N}])`;
+const explicitReference = String.raw`${bibleBooks}\s+(?:${chapterAndVerse}|${chapterOnly})`;
 
 const referenceContainerPattern = new RegExp(
-  String.raw`\([^()]*\d{1,3}[,.:]\s*\d+[^()]*\)|(?<![\p{L}\p{N}_])${bibleBooks}\s+${chapterAndVerse}(?:\s*;\s*(?:${bibleBooks}\s+)?${chapterAndVerse})*`,
+  String.raw`\([^()]*\d[^()]*\)|(?<![\p{L}\p{N}_])${explicitReference}(?:\s*[;:]\s*(?:${explicitReference}|${chapterAndVerse}))*`,
   "giu",
 );
 
 const referencePartPattern = new RegExp(
-  String.raw`(?:(?<book>${bibleBooks})\s+)?(?<chapter>\d{1,3})(?<separator>[,.:])\s*(?<verses>${verse})`,
+  String.raw`(?<![\p{L}\p{N}_])(?:(?<book>${bibleBooks})\s+)?(?<reference>${chapterAndVerse})|(?<![\p{L}\p{N}_])(?<chapterBook>${bibleBooks})\s+(?<chapters>${chapterOnly})`,
   "giu",
 );
 
 const explicitReferencePattern = new RegExp(
-  String.raw`(?<![\p{L}\p{N}_])${bibleBooks}\s+${chapterAndVerse}`,
+  String.raw`(?<![\p{L}\p{N}_])${explicitReference}`,
   "iu",
 );
 
@@ -71,21 +76,25 @@ function tokenizeSequence(
     const groups = match.groups as
       | {
           book?: string;
-          chapter?: string;
-          separator?: string;
-          verses?: string;
+          reference?: string;
+          chapterBook?: string;
+          chapters?: string;
         }
       | undefined;
-    const book = groups?.book ?? lastBook;
+    const book = groups?.book ?? groups?.chapterBook ?? lastBook;
+    const reference = groups?.reference ?? groups?.chapters;
 
     pushText(tokens, value.slice(cursor, start));
-    if (!book || !groups?.chapter || !groups.separator || !groups.verses) {
+    if (!book || !reference) {
       pushText(tokens, match[0]);
     } else {
-      const compactVerses = groups.verses.replace(/\s+/g, "");
-      const label = `${book} ${groups.chapter}${groups.separator}${compactVerses}`;
-      tokens.push({ type: "citation", value: match[0], label });
-      lastBook = book;
+      const label = `${book} ${reference.replace(/\s+/g, "")}`;
+      if (buildJerusalemBibleLookup(label)) {
+        tokens.push({ type: "citation", value: match[0], label });
+        lastBook = book;
+      } else {
+        pushText(tokens, match[0]);
+      }
     }
     cursor = start + match[0].length;
   }

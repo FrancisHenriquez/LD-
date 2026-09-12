@@ -7,7 +7,7 @@ import {
 } from "../../catholic-bible";
 import {
   fetchJerusalemBibleChapter as fetchChapterFromReader,
-  fetchJerusalemBiblePassage,
+  fetchJerusalemBibleReference,
 } from "../../jerusalem-bible-reader";
 import { readBibleEdgeCache, writeBibleEdgeCache } from "../../bible-edge-cache";
 
@@ -48,14 +48,7 @@ export async function GET(request: NextRequest) {
   if (cachedResponse) return cachedResponse;
 
   try {
-    const { providerId, text } = await fetchJerusalemBiblePassage(
-      lookup.bookSlug,
-      lookup.chapter,
-      lookup.startVerse,
-      lookup.endVerse,
-      fetchProviderChapter,
-      lookup.verseRanges,
-    );
+    const { providerId, text } = await fetchJerusalemBibleReference(lookup, fetchProviderChapter);
 
     const response = NextResponse.json(
       {

@@ -1,4 +1,5 @@
 import {
+  buildJerusalemBibleLookup,
   buildJerusalemBibleChapterSources,
   type JerusalemBibleProviderId,
   type JerusalemBibleVerseRange,
@@ -42,6 +43,28 @@ type ChapterFetcher = (
   bookSlug: string,
   chapter: number,
 ) => Promise<JerusalemBibleChapter>;
+
+/** Lee también rangos entre capítulos, conservando los límites de ambos extremos. */
+export async function fetchJerusalemBibleReference(
+  lookup: NonNullable<ReturnType<typeof buildJerusalemBibleLookup>>,
+  chapterFetcher: ChapterFetcher = fetchJerusalemBibleChapter,
+) {
+  const passages = [];
+  for (const { chapter, verseRanges } of lookup.chapterRanges) {
+    const passage = await fetchJerusalemBiblePassage(
+      lookup.bookSlug, chapter,
+      Math.min(...verseRanges.map((range) => range.startVerse)),
+      Math.max(...verseRanges.map((range) => range.endVerse)),
+      chapterFetcher, verseRanges,
+    );
+    passages.push({ ...passage, chapter });
+  }
+  return {
+    providerId: passages[0].providerId,
+    text: passages.map(({ chapter, text }) => passages.length > 1
+      ? `Capítulo ${chapter}\n\n${text}` : text).join("\n\n"),
+  };
+}
 
 function parserForProvider(providerId: JerusalemBibleProviderId) {
   switch (providerId) {
