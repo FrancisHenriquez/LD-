@@ -28,12 +28,37 @@ nav span { margin-left:auto; font-size:20px; }
 .songbook-resource { margin-top:24px; padding-top:22px; border-top:1px solid var(--line); display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:24px; }
 .songbook .songbook-name { margin:0 0 8px; font:400 28px/1.2 Georgia,serif; }
 .songbook .songbook-edition { margin:0; font:14px/1.5 Arial,sans-serif; }
-.songbook-actions { display:flex; align-items:center; flex-wrap:wrap; gap:18px; }
-.songbook-actions a { display:inline-flex; align-items:center; gap:14px; min-height:44px; color:inherit; font:14px/1.5 Arial,sans-serif; }
-.songbook-actions .songbook-open { padding:12px 18px; background:var(--emerald); color:var(--paper); text-decoration:none; border:1px solid var(--emerald); }
-.songbook-open:hover { opacity:.88; }
-.songbook-download { text-underline-offset:5px; }
-@media (max-width:480px) { .songbook { padding:22px 18px; } .songbook-actions { align-items:flex-start; flex-direction:column; gap:8px; } }
+.songbook-toggle { display:inline-flex; align-items:center; gap:18px; min-height:44px; padding:12px 18px; border:1px solid var(--emerald); background:var(--emerald); color:var(--paper); font:14px/1.5 Arial,sans-serif; cursor:pointer; }
+.songbook-toggle:hover { background:var(--paper); color:var(--emerald); }
+.songbook-content { margin-top:28px; padding-top:28px; border-top:1px solid var(--line); }
+.songbook-search-label { display:block; margin-bottom:12px; font:700 14px/1.5 Arial,sans-serif; }
+.songbook-search { display:flex; align-items:center; gap:12px; border-bottom:2px solid var(--emerald); }
+.songbook-search input { min-width:0; width:100%; border:0; padding:14px 0; color:inherit; background:transparent; font:20px/1.5 Georgia,serif; scroll-margin-top:28px; }
+.songbook-search input::placeholder { color:var(--emerald); opacity:.7; }
+.songbook-search button { min-width:44px; min-height:44px; border:0; background:none; cursor:pointer; font-size:26px; }
+.songbook .songbook-status { margin:18px 0; font:14px/1.6 Arial,sans-serif; }
+.songbook-list { max-height:480px; overflow-y:auto; overscroll-behavior:contain; list-style:none; margin:0; padding:0; border-top:1px solid var(--line); }
+.songbook-list li { border-bottom:1px solid var(--line); }
+.songbook-list button { display:flex; align-items:center; justify-content:space-between; gap:20px; width:100%; padding:20px 8px; border:0; background:transparent; text-align:left; cursor:pointer; }
+.songbook-list button:hover,.songbook-list button:focus-visible { background:rgba(6,78,59,.06); }
+.songbook-list button:focus-visible { outline-offset:-3px; }
+.songbook-list-title { display:block; font:24px/1.25 Georgia,serif; }
+.songbook-list-source { display:block; margin-top:8px; font:14px/1.5 Arial,sans-serif; }
+.songbook-text-button { min-height:44px; border:0; padding:8px 0; background:none; text-decoration:underline; text-underline-offset:5px; font:14px/1.5 Arial,sans-serif; cursor:pointer; }
+.song-reader { max-width:760px; margin:0 auto; }
+.songbook .song-category { margin-top:30px; }
+.song-reader h4 { margin:16px 0; font:400 clamp(32px,5vw,52px)/1.1 Georgia,serif; letter-spacing:-.025em; scroll-margin-top:28px; overflow-wrap:anywhere; }
+.songbook .song-source { margin:0 0 24px; font:18px/1.6 Georgia,serif; }
+.song-reader-options { display:flex; flex-wrap:wrap; align-items:center; gap:14px 28px; padding:14px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); font:14px/1.6 Arial,sans-serif; }
+.song-reader-options label { display:flex; align-items:center; min-height:44px; gap:10px; cursor:pointer; }
+.song-reader-options input { width:18px; height:18px; accent-color:var(--emerald); }
+.song-lyrics { margin:32px 0; font:20px/1.65 Georgia,serif; overflow-wrap:anywhere; }
+.song-line--chorus { font-weight:700; }
+.song-line--chord { font:14px/1.6 Arial,sans-serif; letter-spacing:.04em; }
+.song-line--break:not(:first-child) { margin-top:20px; }
+.song-attribution { padding-top:20px; border-top:1px solid var(--line); }
+.article-jumps { display:flex; flex-wrap:wrap; gap:0 24px; }
+@media (max-width:480px) { .songbook { padding:22px 18px; } .songbook-toggle { width:100%; justify-content:space-between; } .songbook-list-title { font-size:22px; } }
 .search-wrap { margin:72px 0 36px; }
 .search-wrap label { display:block; margin-bottom:10px; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
 .search { border-bottom:2px solid var(--emerald); display:flex; align-items:center; gap:12px; }

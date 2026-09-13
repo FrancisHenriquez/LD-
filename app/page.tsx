@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { splitArticleSections } from "./article-sections";
+import Songbook from "./songbook";
 import articlesData from "./data/articles.json";
 import {
   buildScripturePanelReferences,
@@ -150,9 +151,10 @@ function ArticleBody({
     <header className={`article-opening${hasTextIntroduction ? "" : " article-opening--implicit"}`}>
       <p className="eyebrow">Vocabulario de teología bíblica</p>
       <h2 id="article-title">{article.title}</h2>
-      <a className="article-reference-jump" href="#citas-por-procedencia">
+      <div className="article-jumps"><a className="article-reference-jump" href="#citas-por-procedencia">
         Citas por procedencia <span>({referenceCount})</span><span aria-hidden="true">↓</span>
       </a>
+      <a className="article-reference-jump" href="#cantos">Cantos para este tema <span aria-hidden="true">↓</span></a></div>
     </header>
     <div className="article-body">
       {sections.map((section, sectionIndex) => {
@@ -189,29 +191,6 @@ function ArticleBody({
     <ArticleReferenceGroups key={article.title} groups={referenceGroups} onOpenReference={onOpenReference} />
     <Songbook topic={article.title} />
   </>;
-}
-
-/** Recurso compartido para acompañar la lectura y la preparación de los temas. */
-function Songbook({ topic }: { topic?: string }) {
-  const pdfUrl = "/pdfs/resucito-xx-edicion-2014.pdf";
-  return <section className="songbook" id="cantos" aria-labelledby="songbook-title">
-    <div className="songbook-heading">
-      <p className="songbook-label">Cantos y Escritura</p>
-      <span aria-hidden="true">♫</span>
-    </div>
-    <h3 id="songbook-title">Cantos para acompañar la Palabra</h3>
-    <p className="songbook-description">{topic
-      ? <>Al preparar el tema «{topic}», puedes elegir cantos relacionados con sus citas bíblicas. El canto acompaña la lectura, ayuda a profundizar en su sentido y favorece la comprensión de la Palabra.</>
-      : <>Los cantos acompañan las citas de los temarios bíblicos: ayudan a profundizar en su sentido y a comprender mejor el tema que se está preparando. Consulta el cancionero para elegir cantos relacionados con cada lectura.</>}
-    </p>
-    <div className="songbook-resource">
-      <div><p className="songbook-name">Resucitó</p><p className="songbook-edition">Cancionero · XX edición · 2014 · PDF</p></div>
-      <div className="songbook-actions">
-        <a className="songbook-open" href={pdfUrl} target="_blank" rel="noreferrer" aria-label="Abrir cancionero Resucitó en una pestaña nueva">Abrir cancionero <span aria-hidden="true">↗</span></a>
-        <a className="songbook-download" href={pdfUrl} download="Resucito-XX-edicion-2014.pdf">Descargar PDF <span aria-hidden="true">↓</span></a>
-      </div>
-    </div>
-  </section>;
 }
 
 /** Índice de citas del tema; cada grupo se despliega sin abandonar la lectura. */

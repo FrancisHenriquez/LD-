@@ -31,5 +31,8 @@ test("renders development preview metadata", async () => {
     response.headers.get("content-type") ?? "",
     /^text\/html\b/i,
   );
-  assert.match(await response.text(), developmentPreviewMeta);
+  const html = await response.text();
+  assert.match(html, developmentPreviewMeta);
+  assert.match(html, /Explorar los cantos/);
+  assert.doesNotMatch(html, /href="[^\"]*\.pdf|<iframe|<embed/);
 });
